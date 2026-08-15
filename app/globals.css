@@ -1,26 +1,272 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================
+   RAAHE PHOTOBOOTH — DESIGN TOKENS
+   Every value below is derived from the Raahe brand style guide.
+   Change a value here and it updates across the whole app.
+   ============================================================ */
+
+@theme {
+  /* --- Primary palette (brand guide) --- */
+  --color-ink: #212121; /* "Grey" — our ground */
+  --color-paper: #f4f5f5; /* "White" */
+  --color-pink: #f04e98; /* "Raahe Pink" — action + hero */
+
+  /* --- Secondary palette (guide: never exceed 30% coverage) --- */
+  --color-violet: #7d55c7;
+  --color-mindaro: #d4eb8e;
+  --color-orange: #ff6a13;
+
+  /* --- Derived surfaces (built from --color-ink, not in the guide) --- */
+  --color-ink-lift: #2b2b2b; /* raised surfaces, chips */
+  --color-ink-deep: #151515; /* recessed wells, camera letterbox */
+  --color-hairline: #3a3a3a; /* 1px rules */
+
+  /* --- Type --- */
+  --font-display: var(--font-league-spartan), system-ui, sans-serif;
+
+  /* --- Motion --- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============================================================
+   BASE
+   ============================================================ */
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-ink);
+  /* Stops the whole page bouncing when you drag on a phone. */
+  overscroll-behavior: none;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-display);
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keyboard users must always be able to see where they are. */
+:focus-visible {
+  outline: 3px solid var(--color-pink);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+button {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+/* ============================================================
+   TYPOGRAPHY SYSTEM
+   The brand's signature is the tension between huge tight
+   lowercase display type and tiny wide uppercase labels.
+   ============================================================ */
+
+/* Big lowercase display — "this weekend, we jam." from the guide */
+.t-display {
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.85;
+  text-transform: lowercase;
+}
+
+/* Small wide uppercase label — the guide's tiny tracked captions */
+.t-label {
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.2;
+}
+
+.t-body {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+/* ============================================================
+   ANIMATION — short, snappy, never in the way
+   ============================================================ */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The three home-screen cells filling in turn — the rhythm of a shoot. */
+@keyframes cell-pulse {
+  0%,
+  55%,
+  100% {
+    background-color: transparent;
+  }
+  12%,
+  40% {
+    background-color: var(--color-pink);
+  }
+}
+
+/* Countdown digit: lands hard, then settles. */
+@keyframes count-pop {
+  0% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-count {
+  animation: count-pop 0.5s var(--ease-out-soft) both;
+}
+
+/* Shutter bar draining across the bottom of the preview. */
+@keyframes shutter-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* The finished strip arriving. */
+@keyframes strip-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-reveal {
+  animation: strip-reveal 0.7s var(--ease-out-soft) both;
+}
+
+/* Camera flash. */
+@keyframes flash-pop {
+  0% {
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.55s var(--ease-out-soft) both;
+}
+
+.animate-fade {
+  animation: fade-in 0.4s var(--ease-out-soft) both;
+}
+
+/* Stagger helpers so a screen assembles itself instead of popping in. */
+.delay-1 {
+  animation-delay: 0.06s;
+}
+.delay-2 {
+  animation-delay: 0.12s;
+}
+.delay-3 {
+  animation-delay: 0.18s;
+}
+.delay-4 {
+  animation-delay: 0.24s;
+}
+.delay-5 {
+  animation-delay: 0.3s;
+}
+
+/* Anyone who has asked their device to reduce motion gets a still app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+/* Full viewport height that accounts for mobile browser chrome. */
+.h-screen-safe {
+  height: 100dvh;
+}
+
+/* Keeps content clear of the notch and the home indicator. */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+/* Horizontal scrollers with no visible scrollbar (filter rail). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ------------------------------------------------------------
+   CAMERA PREVIEW
+   A square that grows to fill whatever room the screen has left
+   after the header, filters and buttons have taken theirs.
+   Change the aspect-ratio here if you change FRAME.cellAspect.
+   ------------------------------------------------------------ */
+.preview-box {
+  aspect-ratio: 1;
+  width: min(100%, calc(100dvh - 22rem));
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+@media (min-width: 1024px) {
+  .preview-box {
+    width: min(100%, calc(100dvh - 20rem));
+    max-width: 620px;
+  }
 }
