@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * Three cells across the top of the camera screen. Each one fills
- * with the actual photo the moment it's taken, so you watch your
- * strip building itself while you're still shooting.
+ * Three cells across the top of the camera screen, strung on a rail
+ * like frames on a reel. Each one fills with the actual photo the
+ * moment it's taken, so you watch your strip building itself while
+ * you're still shooting.
  */
 export default function StripProgress({
   photos,
@@ -15,38 +16,56 @@ export default function StripProgress({
   total?: number;
 }) {
   return (
-    <div className="flex items-center justify-center gap-2.5" aria-hidden="true">
-      {Array.from({ length: total }, (_, i) => {
-        const shot = photos[i];
-        const isNext = !shot && i === activeIndex;
+    <div className="relative flex items-center justify-center" aria-hidden="true">
+      {/* The rail the frames sit on. */}
+      <span className="absolute h-px w-40 bg-hairline" />
 
-        return (
-          <span
-            key={i}
-            className={`block size-9 overflow-hidden rounded-md border transition-all duration-300 ${
-              shot
-                ? "border-pink"
-                : isNext
-                  ? "border-pink/70"
-                  : "border-hairline"
-            }`}
-            style={
-              isNext
-                ? { animation: "cell-pulse 1.6s var(--ease-out-soft) infinite" }
-                : undefined
-            }
-          >
-            {shot && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={shot}
-                alt=""
-                className="animate-fade size-full object-cover"
-              />
-            )}
-          </span>
-        );
-      })}
+      <div className="relative flex items-center gap-3">
+        {Array.from({ length: total }, (_, i) => {
+          const shot = photos[i];
+          const isNext = !shot && i === activeIndex;
+
+          return (
+            <span key={i} className="relative block">
+              <span
+                className={`block size-11 overflow-hidden rounded-lg border bg-ink transition-colors duration-300 ${
+                  shot
+                    ? "border-pink"
+                    : isNext
+                      ? "border-pink/70"
+                      : "border-hairline"
+                }`}
+                style={
+                  isNext
+                    ? {
+                        animation:
+                          "cell-pulse 1.6s var(--ease-out-soft) infinite",
+                      }
+                    : undefined
+                }
+              >
+                {shot ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={shot}
+                    alt=""
+                    className="animate-land size-full object-cover"
+                  />
+                ) : (
+                  <span className="t-label grid size-full place-items-center text-[9px] text-paper/30">
+                    {`0${i + 1}`}
+                  </span>
+                )}
+              </span>
+
+              {/* A tick under the frame we're shooting now. */}
+              {isNext && (
+                <span className="animate-fade absolute -bottom-2 left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-pink" />
+              )}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

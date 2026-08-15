@@ -9,7 +9,7 @@ import {
   stripFilename,
 } from "@/lib/share";
 
-const MIN_DEVELOP_MS = 600;
+const MIN_DEVELOP_MS = 900;
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -26,6 +26,7 @@ export default function ResultScreen({
   const [failed, setFailed] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   // Worked out once on mount. canShareFiles() already guards against
   // running where there is no navigator.
   const [shareable] = useState(() => canShareFiles());
@@ -70,14 +71,25 @@ export default function ResultScreen({
     return () => clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(false), 2200);
+    return () => clearTimeout(timer);
+  }, [saved]);
+
   /* ---------------- Actions ---------------- */
 
   const save = () => {
     if (!strip) return;
     const outcome = downloadImage(strip.blob, stripFilename());
-    if (outcome === "saved") setToast("Saved to your device");
-    else if (outcome === "opened") setToast("Press and hold the image to save");
-    else setToast("Couldn't save. Press and hold the strip instead.");
+    if (outcome === "saved") {
+      setSaved(true);
+      setToast("Saved to your device");
+    } else if (outcome === "opened") {
+      setToast("Press and hold the image to save");
+    } else {
+      setToast("Couldn't save. Press and hold the strip instead.");
+    }
   };
 
   const share = async () => {
@@ -90,22 +102,28 @@ export default function ResultScreen({
 
   if (!strip && !failed) {
     return (
-      <div className="h-screen-safe flex flex-col items-center justify-center gap-9 px-8">
-        <div className="flex gap-2">
+      <div className="gutter flex h-full flex-col items-center justify-center gap-10">
+        <div className="flex gap-2.5">
           {photos.map((photo, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={i}
               src={photo}
               alt=""
-              className="w-16 rounded-md border border-hairline sm:w-20"
-              style={{
-                animation: `rise-in .55s var(--ease-out-soft) ${i * 0.1}s both`,
-              }}
+              className="animate-develop w-16 rounded-md border border-hairline sm:w-20"
+              style={{ animationDelay: `${i * 0.16}s` }}
             />
           ))}
         </div>
-        <p className="t-label animate-pulse text-pink">Developing your strip</p>
+
+        <div className="w-44">
+          <p className="t-label text-center text-pink">
+            Developing your strip
+          </p>
+          <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
+            <span className="animate-track absolute inset-y-0 left-0 w-1/3 bg-pink" />
+          </span>
+        </div>
       </div>
     );
   }
@@ -114,17 +132,17 @@ export default function ResultScreen({
 
   if (failed) {
     return (
-      <div className="h-screen-safe flex flex-col items-center justify-center gap-6 px-8 text-center">
-        <h1 className="t-display text-[2.6rem] text-pink">
+      <div className="gutter flex h-full flex-col items-center justify-center gap-6 text-center">
+        <h1 className="t-display animate-rise text-[2.6rem] text-pink">
           the strip
           <br />
           didn&rsquo;t print
         </h1>
-        <p className="t-body max-w-[28ch] text-paper/60">
+        <p className="t-body animate-rise delay-1 max-w-[28ch] text-paper/60">
           We couldn&rsquo;t put the photos together on this device. Running the
           three shots again usually fixes it.
         </p>
-        <div className="mt-2 flex gap-3">
+        <div className="animate-rise delay-2 mt-2 flex gap-3">
           <button
             type="button"
             onClick={onRetake}
@@ -147,10 +165,16 @@ export default function ResultScreen({
   /* ---------------- The strip ---------------- */
 
   return (
-    <div className="h-screen-safe flex flex-col overflow-hidden">
-      <header className="pt-safe shrink-0 px-6 pt-3 pb-3 text-center">
-        <p className="t-label animate-rise text-pink">Photo strip ready</p>
-        <h1 className="t-display animate-rise delay-1 mt-2 text-[2.1rem] text-paper sm:text-[2.6rem]">
+    <div className="flex h-full flex-col overflow-hidden">
+      <header className="pt-safe gutter shrink-0 pt-3 pb-3">
+        <p className="t-label animate-rise flex items-center gap-2.5 text-pink">
+          <span
+            aria-hidden="true"
+            className="animate-blink block size-[7px] rounded-full bg-pink"
+          />
+          Photo strip ready
+        </p>
+        <h1 className="t-display animate-rise delay-1 mt-2 text-[1.95rem] text-paper sm:text-[2.4rem]">
           your raahe moment{" "}
           <span className="text-[0.7em] leading-none">✨</span>
         </h1>
@@ -161,32 +185,57 @@ export default function ResultScreen({
           type="button"
           onClick={() => setZoomed(true)}
           aria-label="View the photo strip larger"
-          className="animate-reveal absolute inset-0 flex items-center justify-center px-6 py-2"
+          className="gutter absolute inset-0 flex items-center justify-center py-2"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={strip!.url}
             alt="Your Raahe Open Mic photo strip"
-            className="h-full w-full object-contain"
+            className="animate-print max-h-full max-w-full rounded-lg"
           />
         </button>
       </main>
 
-      <footer className="pb-safe shrink-0 px-5 pt-3 pb-4">
+      <footer className="pb-safe gutter shrink-0 pt-3 pb-4">
         <p
-          className="t-label mb-3 h-4 text-center text-paper/45 transition-opacity"
+          className="t-label mb-3 flex h-4 items-center justify-center text-paper/45"
           aria-live="polite"
         >
-          {toast ?? (shareable ? "Tap the strip to see it bigger" : "")}
+          {toast ? (
+            <span key={toast} className="animate-toast">
+              {toast}
+            </span>
+          ) : (
+            "Tap the strip to see it bigger"
+          )}
         </p>
 
         <button
           type="button"
           onClick={save}
-          className="t-display flex w-full items-center justify-center rounded-2xl bg-pink text-[1.8rem] text-ink transition-transform active:scale-[0.985]"
+          className="t-display relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-pink text-[1.8rem] text-ink transition-transform active:scale-[0.985]"
           style={{ minHeight: 62 }}
         >
-          save photo
+          <span className="sheen" aria-hidden="true" />
+          {saved && (
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              className="animate-land relative"
+            >
+              <path
+                d="m5 12.5 4.5 4.5L19 7"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+          <span className="relative">{saved ? "saved" : "save photo"}</span>
         </button>
 
         <div className="mt-3 flex gap-3">
@@ -194,7 +243,7 @@ export default function ResultScreen({
             <button
               type="button"
               onClick={() => void share()}
-              className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.35rem] text-paper/85 transition-transform active:scale-[0.985]"
+              className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.35rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
               style={{ minHeight: 56 }}
             >
               share
@@ -203,7 +252,7 @@ export default function ResultScreen({
           <button
             type="button"
             onClick={onRetake}
-            className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.35rem] text-paper/85 transition-transform active:scale-[0.985]"
+            className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.35rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
             style={{ minHeight: 56 }}
           >
             retake
@@ -233,7 +282,7 @@ export default function ResultScreen({
           <img
             src={strip!.url}
             alt="Your Raahe Open Mic photo strip"
-            className="mx-auto block w-full max-w-[560px] px-4 pb-10"
+            className="animate-fade mx-auto block w-full max-w-[620px] px-4 pb-10"
           />
         </div>
       )}

@@ -2,6 +2,8 @@
 
 import { FRAME, PHOTO_HEIGHT } from "@/lib/config/frame";
 import type { Filter } from "@/lib/filters";
+import { paintGrain } from "@/lib/grain";
+import { paintWash } from "@/lib/washes";
 
 /* ================================================================
    CANVAS FILTER SUPPORT
@@ -155,15 +157,12 @@ export function captureFrame(
     applyFilterByHand(ctx, width, height, filter.css);
   }
 
-  // The colour wash sits on top, exactly like the preview overlay.
-  if (filter.tint) {
-    ctx.save();
-    ctx.globalCompositeOperation = filter.tint.blend;
-    ctx.globalAlpha = filter.tint.alpha;
-    ctx.fillStyle = filter.tint.color;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
+  // Colour layers, then grain — the same order, and the same shared
+  // painters, that the live preview stacks over the video.
+  for (const wash of filter.washes ?? []) {
+    paintWash(ctx, width, height, wash);
   }
+  if (filter.grain) paintGrain(ctx, width, height, filter.grain);
 
   return canvas.toDataURL("image/jpeg", FRAME.photoQuality);
 }

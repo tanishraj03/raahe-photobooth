@@ -1,21 +1,30 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import FilterLayers from "@/components/FilterLayers";
 import { FILTERS, SWATCH_GRADIENT } from "@/lib/filters";
 
 /**
- * The filter picker. Sits below the preview so it never covers a face.
- * Each swatch is a light-to-dark ramp with a skin tone in it, so the
- * effect you see on the chip is the effect you get on the photo.
+ * The filter picker. Sits below the preview so it never covers a
+ * face.
+ *
+ * Each chip shows a still lifted from the live camera a moment ago,
+ * so you're choosing between fourteen versions of your own face
+ * rather than fourteen abstract swatches. Before the camera is
+ * ready it falls back to a light-to-dark ramp with a skin tone in
+ * the middle, which reads honestly for tone if not for likeness.
  */
 export default function FilterRail({
   activeId,
   onSelect,
   disabled = false,
+  preview,
 }: {
   activeId: string;
   onSelect: (id: string) => void;
   disabled?: boolean;
+  /** Data URL of a recent camera frame, unfiltered. */
+  preview?: string | null;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
 
@@ -23,7 +32,11 @@ export default function FilterRail({
   useEffect(() => {
     const rail = railRef.current;
     const chip = rail?.querySelector<HTMLElement>(`[data-id="${activeId}"]`);
-    chip?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    chip?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
   }, [activeId]);
 
   return (
@@ -31,12 +44,13 @@ export default function FilterRail({
       ref={railRef}
       role="radiogroup"
       aria-label="Photo filter"
-      className={`no-scrollbar flex gap-3 overflow-x-auto px-5 py-1 transition-opacity ${
+      className={`no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-[var(--gutter)] pt-2 pb-1 transition-opacity duration-300 ${
         disabled ? "pointer-events-none opacity-40" : ""
       }`}
     >
-      {FILTERS.map((filter) => {
+      {FILTERS.map((filter, index) => {
         const active = filter.id === activeId;
+
         return (
           <button
             key={filter.id}
@@ -46,38 +60,42 @@ export default function FilterRail({
             aria-checked={active}
             disabled={disabled}
             onClick={() => onSelect(filter.id)}
-            className="flex shrink-0 flex-col items-center gap-2 pt-1"
+            className="animate-rise flex shrink-0 snap-center flex-col items-center gap-2"
+            style={{ animationDelay: `${Math.min(index, 8) * 0.03}s` }}
           >
             <span
-              className={`relative block overflow-hidden rounded-xl transition-all duration-200 ${
-                active
-                  ? "ring-2 ring-pink ring-offset-2 ring-offset-ink"
-                  : "ring-1 ring-hairline"
+              className={`relative block isolate overflow-hidden rounded-xl transition-transform duration-200 ease-[var(--ease-spring)] ${
+                active ? "scale-[1.08]" : "scale-100"
               }`}
-              style={{ width: 52, height: 52 }}
+              style={{ width: 56, height: 56 }}
             >
+              {/* The picture itself, with the tone half of the filter. */}
               <span
-                className="absolute inset-0 block"
+                className="absolute inset-0 block bg-cover bg-center"
                 style={{
-                  background: SWATCH_GRADIENT,
+                  background: preview ? undefined : SWATCH_GRADIENT,
+                  backgroundImage: preview ? `url(${preview})` : undefined,
+                  backgroundSize: preview ? "cover" : undefined,
                   filter: filter.css || undefined,
                 }}
               />
-              {filter.tint && (
-                <span
-                  className="absolute inset-0 block"
-                  style={{
-                    backgroundColor: filter.tint.color,
-                    opacity: filter.tint.alpha,
-                    mixBlendMode: filter.tint.blend,
-                  }}
-                />
-              )}
+
+              {/* The colour and texture half. */}
+              <FilterLayers filter={filter} />
+
+              {/* Selection ring, drawn inside so nothing shifts. */}
+              <span
+                className={`pointer-events-none absolute inset-0 rounded-xl transition-all duration-200 ${
+                  active
+                    ? "ring-2 ring-pink ring-inset"
+                    : "ring-1 ring-paper/15 ring-inset"
+                }`}
+              />
             </span>
 
             <span
-              className={`t-label transition-colors ${
-                active ? "text-pink" : "text-paper/45"
+              className={`t-label transition-colors duration-200 ${
+                active ? "text-pink" : "text-paper/40"
               }`}
             >
               {filter.name}

@@ -1,6 +1,10 @@
 "use client";
 
-import { EVENT, LOGO_SOURCES } from "@/lib/config/event";
+import {
+  EVENT,
+  LOGO_FALLBACK_TEXT,
+  LOGO_SOURCES,
+} from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
 
 /* ================================================================
@@ -30,11 +34,12 @@ function fontStack(): string {
 async function waitForFont(stack: string) {
   if (typeof document === "undefined" || !document.fonts) return;
   const primary = stack.split(",")[0].trim();
+  const B = FRAME.brand;
   try {
     await Promise.all([
-      document.fonts.load(`800 ${FRAME.titleSize}px ${primary}`),
-      document.fonts.load(`600 ${FRAME.venueSize}px ${primary}`),
-      document.fonts.load(`700 ${FRAME.dateSize}px ${primary}`),
+      document.fonts.load(`800 ${B.nameSize}px ${primary}`),
+      document.fonts.load(`600 ${B.venueSize}px ${primary}`),
+      document.fonts.load(`700 ${B.dateSize}px ${primary}`),
     ]);
   } catch {
     // Loading by name can fail on some browsers. The next line still helps.
@@ -128,6 +133,32 @@ function fitSize(
   return size;
 }
 
+/** Breaks text into lines that fit a column. Assumes ctx.font is set. */
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  tracking: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return [text];
+
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && measure(ctx, candidate, tracking) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 /* ================================================================
    SHAPES
    ================================================================ */
@@ -178,8 +209,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 /**
  * Finds the real logo file. Returns null if none is there yet, in
- * which case the plate is drawn without a mark — we never draw an
- * invented stand-in for the Raahe logo.
+ * which case the column falls back to the brand name set in type —
+ * we never draw an invented stand-in for the Raahe logo.
  */
 async function loadLogo(): Promise<HTMLImageElement | null> {
   for (const source of LOGO_SOURCES) {
@@ -199,7 +230,7 @@ async function loadLogo(): Promise<HTMLImageElement | null> {
    ================================================================ */
 
 export type Strip = {
-  /** Object URL for showing the strip on screen. Revoke when done. */
+  /** Object URL for showing the image on screen. Revoke when done. */
   url: string;
   blob: Blob;
   width: number;
@@ -207,12 +238,15 @@ export type Strip = {
 };
 
 /**
- * Draws the three photos into the branded Raahe strip and returns it
+ * Draws the three photos into the branded 4:5 poster and returns it
  * as a JPEG. Runs entirely in the browser — no photo ever leaves the
  * device.
  */
 export async function composeStrip(photos: string[]): Promise<Strip> {
   const F = FRAME;
+  const P = F.poster;
+  const S = F.strip;
+  const B = F.brand;
   const stack = fontStack();
 
   const [images, logo] = await Promise.all([
@@ -221,21 +255,35 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     waitForFont(stack),
   ]);
 
-  /* ---------------- Layout ---------------- */
+  const width = P.width;
+  const height = P.height;
+  const count = Math.max(1, images.length);
 
-  const width = F.photoWidth;
-  const contentWidth = width - F.padding * 2;
-  const cellWidth = contentWidth;
+  /* ---------------- Strip card ---------------- */
+
+  // The card is sized by whichever runs out first: the height of the
+  // poster, or the share of its width the card is allowed to take.
+  const gaps = S.photoGap * (count - 1);
+  const cellFromHeight = Math.floor(
+    (height - P.margin * 2 - S.pad * 2 - gaps) / count,
+  );
+  const widthCap = Math.round(width * 0.56) - S.pad * 2;
+
+  const cellWidth = Math.max(
+    80,
+    Math.min(Math.round(cellFromHeight * F.cellAspect), widthCap),
+  );
   const cellHeight = Math.round(cellWidth / F.cellAspect);
 
-  const photosHeight = cellHeight * images.length + F.photoGap * (images.length - 1);
+  const cardWidth = cellWidth + S.pad * 2;
+  const cardHeight = cellHeight * count + gaps + S.pad * 2;
+  const cardX = P.margin;
+  const cardY = Math.round((height - cardHeight) / 2);
 
-  const ruleY = F.padding + photosHeight + F.ruleGapTop;
-  const titleTop = ruleY + F.ruleHeight + F.ruleGapBottom;
-  const titleRowHeight = Math.max(F.logoHeight, F.titleSize * 0.8);
-  const metaTop = titleTop + titleRowHeight + F.metaGap;
-  const metaHeight = Math.max(F.venueSize, F.dateSize);
-  const height = Math.round(metaTop + metaHeight + F.padding);
+  /* ---------------- Event column ---------------- */
+
+  const colX = cardX + cardWidth + P.columnGap;
+  const colWidth = width - colX - P.margin;
 
   /* ---------------- Canvas ---------------- */
 
@@ -252,101 +300,243 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   ctx.fillStyle = F.colors.background;
   ctx.fillRect(0, 0, width, height);
 
+  // A faint dot field, so the empty space reads as paper rather than
+  // as a mistake.
+  if (P.dotSize > 0) {
+    ctx.fillStyle = F.colors.dot;
+    for (let y = P.dotSpacing / 2; y < height; y += P.dotSpacing) {
+      for (let x = P.dotSpacing / 2; x < width; x += P.dotSpacing) {
+        ctx.beginPath();
+        ctx.arc(x, y, P.dotSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  /* ---------------- The card ---------------- */
+
+  ctx.fillStyle = F.colors.card;
+  roundRectPath(ctx, cardX, cardY, cardWidth, cardHeight, S.radius);
+  ctx.fill();
+
+  if (S.borderWidth > 0) {
+    ctx.strokeStyle = F.colors.cardBorder;
+    ctx.lineWidth = S.borderWidth;
+    roundRectPath(
+      ctx,
+      cardX + S.borderWidth / 2,
+      cardY + S.borderWidth / 2,
+      cardWidth - S.borderWidth,
+      cardHeight - S.borderWidth,
+      S.radius,
+    );
+    ctx.stroke();
+  }
+
   /* ---------------- Photos ---------------- */
 
   images.forEach((image, index) => {
-    const y = F.padding + index * (cellHeight + F.photoGap);
+    const y = cardY + S.pad + index * (cellHeight + S.photoGap);
 
     ctx.save();
-    roundRectPath(ctx, F.padding, y, cellWidth, cellHeight, F.photoRadius);
+    roundRectPath(ctx, cardX + S.pad, y, cellWidth, cellHeight, S.photoRadius);
     ctx.clip();
 
     // Something dark behind, so a slow-loading photo never shows white.
     ctx.fillStyle = F.colors.photoWell;
-    ctx.fillRect(F.padding, y, cellWidth, cellHeight);
+    ctx.fillRect(cardX + S.pad, y, cellWidth, cellHeight);
 
     // The photo is already the right shape, so this is a clean fill.
-    ctx.drawImage(image, F.padding, y, cellWidth, cellHeight);
+    ctx.drawImage(image, cardX + S.pad, y, cellWidth, cellHeight);
     ctx.restore();
   });
 
-  /* ---------------- Rule ---------------- */
+  /* ---------------- Sprockets ---------------- */
 
-  ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(F.padding, ruleY, contentWidth, F.ruleHeight);
+  const sprocket = S.sprocket;
+  if (sprocket.enabled && sprocket.width > 0) {
+    const step = sprocket.height + sprocket.gap;
+    const span = cardHeight - S.pad;
+    const runs = Math.max(1, Math.floor((span + sprocket.gap) / step));
+    const runHeight = runs * step - sprocket.gap;
+    const firstY = cardY + (cardHeight - runHeight) / 2;
+    const inset = (S.pad - sprocket.width) / 2;
 
-  /* ---------------- Event name, with the logo beside it ---------------- */
+    ctx.fillStyle = F.colors.sprocket;
+    for (let i = 0; i < runs; i++) {
+      const y = firstY + i * step;
+      for (const x of [
+        cardX + inset,
+        cardX + cardWidth - S.pad + inset,
+      ]) {
+        roundRectPath(
+          ctx,
+          x,
+          y,
+          sprocket.width,
+          sprocket.height,
+          sprocket.radius,
+        );
+        ctx.fill();
+      }
+    }
+  }
 
-  const titleCentre = titleTop + titleRowHeight / 2;
-  let titleX = F.padding;
+  /* ---------------- Date, on the top edge of the strip ---------------- */
+
+  const dateSize = fitSize(
+    ctx,
+    EVENT.date,
+    700,
+    B.dateSize,
+    B.dateTracking,
+    colWidth,
+    stack,
+  );
+  ctx.font = `700 ${dateSize}px ${stack}`;
+  ctx.fillStyle = F.colors.date;
+  drawText(ctx, EVENT.date, colX, cardY + dateSize / 2, dateSize * B.dateTracking);
+
+  /* ---------------- Venue, measured first ---------------- */
+
+  // Measured before the name is placed, because the mark, the name,
+  // the rule and the venue hang together off the card's bottom edge.
+  const venue = EVENT.venue.toUpperCase();
+  let venueSize: number = B.venueSize;
+  for (const word of venue.split(/\s+/)) {
+    venueSize = Math.min(
+      venueSize,
+      fitSize(ctx, word, 600, venueSize, B.venueTracking, colWidth, stack),
+    );
+  }
+  ctx.font = `600 ${venueSize}px ${stack}`;
+  const venueLines = wrapText(
+    ctx,
+    venue,
+    colWidth,
+    venueSize * B.venueTracking,
+  );
+  const venueHeight =
+    venueLines.length * venueSize + (venueLines.length - 1) * B.venueLineGap;
+
+  const tailHeight =
+    B.ruleGapTop + B.ruleHeight + B.ruleGapBottom + venueHeight;
+
+  /* ---------------- Event name ---------------- */
+
+  const name = EVENT.name.toLowerCase();
+  let nameSize: number = B.nameSize;
+  for (const word of name.split(/\s+/)) {
+    nameSize = Math.min(
+      nameSize,
+      fitSize(ctx, word, 800, nameSize, B.nameTracking, colWidth, stack),
+    );
+  }
+
+  // Room the name has between the date at the top of the column and
+  // the rest of the block below it.
+  const nameRoom =
+    cardHeight - dateSize - 40 - B.logoHeight - B.logoGap - tailHeight;
+
+  ctx.font = `800 ${nameSize}px ${stack}`;
+  let nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
+  while (
+    nameLines.length * nameSize * B.nameLineHeight > nameRoom &&
+    nameSize > 22
+  ) {
+    nameSize = Math.floor(nameSize * 0.92);
+    ctx.font = `800 ${nameSize}px ${stack}`;
+    nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
+  }
+
+  const lineHeight = Math.round(nameSize * B.nameLineHeight);
+  const nameHeight = lineHeight * nameLines.length;
+
+  /* ---------------- Draw the block, hung off the card's foot ------ */
+
+  const blockTop =
+    cardY + cardHeight - (B.logoHeight + B.logoGap + nameHeight + tailHeight);
 
   if (logo) {
     const logoWidth = Math.round(
-      (logo.naturalWidth / logo.naturalHeight) * F.logoHeight,
+      (logo.naturalWidth / logo.naturalHeight) * B.logoHeight,
     );
     ctx.drawImage(
       logo,
-      F.padding,
-      Math.round(titleCentre - F.logoHeight / 2),
-      logoWidth,
-      F.logoHeight,
+      colX,
+      blockTop,
+      Math.min(logoWidth, colWidth),
+      B.logoHeight,
     );
-    titleX = F.padding + logoWidth + F.logoGap;
+  } else {
+    // Same typographic fallback the on-screen mark uses. Never a
+    // redrawn approximation of the logo itself.
+    const size = Math.round(B.logoHeight * 0.78);
+    ctx.font = `800 ${size}px ${stack}`;
+    ctx.fillStyle = F.colors.title;
+    drawText(
+      ctx,
+      LOGO_FALLBACK_TEXT,
+      colX,
+      blockTop + B.logoHeight / 2,
+      size * -0.03,
+    );
   }
 
-  const title = EVENT.name.toLowerCase();
-  const titleSize = fitSize(
-    ctx,
-    title,
-    800,
-    F.titleSize,
-    F.titleTracking,
-    width - F.padding - titleX,
-    stack,
-  );
-  ctx.font = `800 ${titleSize}px ${stack}`;
+  const nameTop = blockTop + B.logoHeight + B.logoGap;
+
+  ctx.font = `800 ${nameSize}px ${stack}`;
   ctx.fillStyle = F.colors.title;
-  drawText(ctx, title, titleX, titleCentre, titleSize * F.titleTracking);
+  nameLines.forEach((line, index) => {
+    drawText(
+      ctx,
+      line,
+      colX,
+      nameTop + index * lineHeight + lineHeight / 2,
+      nameSize * B.nameTracking,
+    );
+  });
 
-  /* ---------------- Venue on the left, date on the right ---------------- */
+  const ruleY = nameTop + nameHeight + B.ruleGapTop;
+  ctx.fillStyle = F.colors.rule;
+  ctx.fillRect(colX, ruleY, colWidth, B.ruleHeight);
 
-  const metaCentre = metaTop + metaHeight / 2;
-
-  ctx.font = `700 ${F.dateSize}px ${stack}`;
-  const dateWidth = measure(ctx, EVENT.date, 0);
-
-  const venue = EVENT.venue.toUpperCase();
-  const venueSize = fitSize(
-    ctx,
-    venue,
-    600,
-    F.venueSize,
-    F.venueTracking,
-    contentWidth - dateWidth - 40,
-    stack,
-  );
   ctx.font = `600 ${venueSize}px ${stack}`;
   ctx.fillStyle = F.colors.venue;
-  drawText(ctx, venue, F.padding, metaCentre, venueSize * F.venueTracking);
-
-  ctx.font = `700 ${F.dateSize}px ${stack}`;
-  ctx.fillStyle = F.colors.date;
-  drawText(ctx, EVENT.date, width - F.padding - dateWidth, metaCentre, 0);
-
-  /* ---------------- Keyline ---------------- */
-
-  if (F.borderWidth > 0) {
-    ctx.strokeStyle = F.colors.border;
-    ctx.lineWidth = F.borderWidth;
-    roundRectPath(
+  const venueTop = ruleY + B.ruleHeight + B.ruleGapBottom;
+  venueLines.forEach((line, index) => {
+    drawText(
       ctx,
-      F.borderWidth / 2,
-      F.borderWidth / 2,
-      width - F.borderWidth,
-      height - F.borderWidth,
-      F.cornerRadius,
+      line,
+      colX,
+      venueTop + index * (venueSize + B.venueLineGap) + venueSize / 2,
+      venueSize * B.venueTracking,
     );
-    ctx.stroke();
+  });
+
+  /* ---------------- Crop marks ---------------- */
+
+  if (P.cropMarks) {
+    const L = P.cropMarkLength;
+    const inset = P.cropMarkInset;
+    ctx.strokeStyle = F.colors.cropMark;
+    ctx.lineWidth = P.cropMarkWidth;
+    ctx.lineCap = "square";
+
+    const corners: [number, number, number, number][] = [
+      [inset, inset, 1, 1],
+      [width - inset, inset, -1, 1],
+      [inset, height - inset, 1, -1],
+      [width - inset, height - inset, -1, -1],
+    ];
+
+    for (const [x, y, dx, dy] of corners) {
+      ctx.beginPath();
+      ctx.moveTo(x + dx * L, y);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x, y + dy * L);
+      ctx.stroke();
+    }
   }
 
   /* ---------------- Export ---------------- */

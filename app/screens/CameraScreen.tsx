@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import CountdownRing from "@/components/CountdownRing";
+import FilterLayers from "@/components/FilterLayers";
 import FilterRail from "@/components/FilterRail";
 import StripProgress from "@/components/StripProgress";
 import { captureFrame } from "@/lib/capture";
@@ -10,6 +12,11 @@ import { DEFAULT_FILTER_ID, getFilter } from "@/lib/filters";
 const TOTAL_SHOTS = 3;
 const COUNT_FROM = 5;
 
+/** Size of the still used to draw the filter chips. */
+const SAMPLE_SIZE = 96;
+/** How often that still is refreshed while you're choosing. */
+const SAMPLE_EVERY_MS = 2600;
+
 /** Where we are in the shoot. */
 type Phase =
   | { kind: "ready" }
@@ -17,6 +24,14 @@ type Phase =
   | { kind: "capture"; shot: number }
   | { kind: "between"; shot: number }
   | { kind: "done" };
+
+/** The four corners of the viewfinder. */
+const BRACKETS = [
+  "top-0 left-0 rounded-tl-md border-t-2 border-l-2",
+  "top-0 right-0 rounded-tr-md border-t-2 border-r-2",
+  "bottom-0 left-0 rounded-bl-md border-b-2 border-l-2",
+  "bottom-0 right-0 rounded-br-md border-r-2 border-b-2",
+];
 
 export default function CameraScreen({
   onComplete,
@@ -34,8 +49,10 @@ export default function CameraScreen({
   const [phase, setPhase] = useState<Phase>({ kind: "ready" });
   const [flash, setFlash] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [sample, setSample] = useState<string | null>(null);
 
   const filter = getFilter(filterId);
+  const running = phase.kind !== "ready" && phase.kind !== "done";
 
   // Refs let the countdown read current values without restarting itself
   // every time a filter is tapped.
@@ -80,6 +97,44 @@ export default function CameraScreen({
       cancelled = true;
     };
   }, [open]);
+
+  /* ---------------- Live filter chips ---------------- */
+
+  // A small square lifted off the camera every couple of seconds, so
+  // every chip in the rail shows your own face wearing that filter.
+  useEffect(() => {
+    if (status !== "ready" || running) return;
+
+    const grab = () => {
+      const video = videoRef.current;
+      if (!video?.videoWidth) return;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = SAMPLE_SIZE;
+      canvas.height = SAMPLE_SIZE;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) return;
+
+      // Centre crop, mirrored to match what's on screen.
+      const side = Math.min(video.videoWidth, video.videoHeight);
+      const sx = (video.videoWidth - side) / 2;
+      const sy = (video.videoHeight - side) / 2;
+      if (mirrored) {
+        ctx.translate(SAMPLE_SIZE, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+
+      setSample(canvas.toDataURL("image/jpeg", 0.7));
+    };
+
+    const first = setTimeout(grab, 400);
+    const repeat = setInterval(grab, SAMPLE_EVERY_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(repeat);
+    };
+  }, [status, running, mirrored, videoRef]);
 
   /* ---------------- The shoot ---------------- */
 
@@ -182,13 +237,12 @@ export default function CameraScreen({
 
   /* ---------------- Derived UI state ---------------- */
 
-  const running = phase.kind !== "ready" && phase.kind !== "done";
   const activeShot =
-    phase.kind === "counting" || phase.kind === "capture"
+    phase.kind === "counting" ||
+    phase.kind === "capture" ||
+    phase.kind === "between"
       ? phase.shot
-      : phase.kind === "between"
-        ? phase.shot
-        : photos.length;
+      : photos.length;
 
   const statusLine = running
     ? `Photo ${Math.min(activeShot + 1, TOTAL_SHOTS)} of ${TOTAL_SHOTS}`
@@ -197,10 +251,12 @@ export default function CameraScreen({
   /* ---------------- Render ---------------- */
 
   return (
-    <div className="h-screen-safe relative flex flex-col overflow-hidden">
+    <div className="relative flex h-full flex-col overflow-hidden">
       {/* ---------- Header ---------- */}
       <header className="pt-safe shrink-0">
-        <div className="flex items-center justify-between px-4 py-3">
+        {/* px-3 lines the icons up with the gutter: 12px here plus the
+            12px inside each 44px hit area lands on the same edge. */}
+        <div className="flex items-center justify-between px-3 py-2">
           <button
             type="button"
             onClick={() => {
@@ -220,7 +276,16 @@ export default function CameraScreen({
             </svg>
           </button>
 
-          <p className="t-label text-paper/55" aria-live="polite">
+          <p
+            className="t-label flex items-center gap-2 text-paper/55"
+            aria-live="polite"
+          >
+            {running && (
+              <span
+                aria-hidden="true"
+                className="animate-blink block size-[6px] rounded-full bg-pink"
+              />
+            )}
             {statusLine}
           </p>
 
@@ -229,7 +294,7 @@ export default function CameraScreen({
             onClick={() => void flip()}
             disabled={!canFlip || running}
             aria-label="Switch camera"
-            className="grid size-11 place-items-center rounded-full text-paper/70 transition-colors active:text-paper disabled:opacity-25"
+            className="grid size-11 place-items-center rounded-full text-paper/70 transition-all duration-300 active:rotate-180 active:text-paper disabled:opacity-25"
           >
             <svg
               width="21"
@@ -257,12 +322,12 @@ export default function CameraScreen({
       </header>
 
       {/* ---------- Strip building up ---------- */}
-      <div className="shrink-0 pb-3">
+      <div className="shrink-0 pt-1 pb-4">
         <StripProgress photos={photos} activeIndex={activeShot} />
       </div>
 
       {/* ---------- Live preview ---------- */}
-      <main className="grid min-h-0 flex-1 place-items-center px-4">
+      <main className="gutter grid min-h-0 flex-1 place-items-center">
         <div className="preview-box relative isolate overflow-hidden rounded-2xl bg-ink-deep">
           <video
             ref={videoRef}
@@ -276,40 +341,35 @@ export default function CameraScreen({
             }}
           />
 
-          {/* Live colour wash, matching what capture will bake in. */}
-          {filter.tint && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{
-                backgroundColor: filter.tint.color,
-                opacity: filter.tint.alpha,
-                mixBlendMode: filter.tint.blend,
-              }}
-            />
-          )}
+          {/* Colour and grain, exactly as capture will bake them in. */}
+          <FilterLayers filter={filter} />
+
+          {/* Viewfinder */}
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-3 ${
+              phase.kind === "counting" ? "animate-brackets" : "opacity-30"
+            }`}
+          >
+            {BRACKETS.map((corner) => (
+              <span
+                key={corner}
+                className={`absolute size-7 border-pink ${corner}`}
+              />
+            ))}
+          </span>
 
           {/* Countdown */}
           {phase.kind === "counting" && (
             <>
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-ink/30"
+                className="animate-fade pointer-events-none absolute inset-0 bg-ink/35"
               />
-              <span className="pointer-events-none absolute inset-0 grid place-items-center">
-                <span
-                  key={phase.n}
-                  className="t-display animate-count block text-[7rem] text-paper tabular-nums sm:text-[9rem]"
-                  style={{ textShadow: "0 6px 40px rgba(0,0,0,.45)" }}
-                >
-                  {phase.n}
-                </span>
-              </span>
-              <span
-                key={`bar-${phase.shot}`}
-                aria-hidden="true"
-                className="absolute inset-x-0 bottom-0 h-1.5 origin-left bg-pink"
-                style={{ animation: "shutter-bar 5s linear forwards" }}
+              <CountdownRing
+                n={phase.n}
+                seconds={COUNT_FROM}
+                shot={phase.shot}
               />
             </>
           )}
@@ -317,7 +377,7 @@ export default function CameraScreen({
           {/* Breath between photos */}
           {phase.kind === "between" && (
             <span className="pointer-events-none absolute inset-0 grid place-items-center">
-              <span className="t-label animate-fade rounded-full bg-ink/75 px-5 py-2.5 text-paper">
+              <span className="t-label animate-toast rounded-full bg-ink/80 px-5 py-2.5 text-paper">
                 Next up
               </span>
             </span>
@@ -352,9 +412,10 @@ export default function CameraScreen({
                     setGate("open");
                     void open();
                   }}
-                  className="t-display mt-7 rounded-2xl bg-pink px-8 py-4 text-[1.5rem] text-ink transition-transform active:scale-[0.98]"
+                  className="t-display relative mt-7 overflow-hidden rounded-2xl bg-pink px-8 py-4 text-[1.5rem] text-ink transition-transform active:scale-[0.98]"
                 >
-                  turn on camera
+                  <span className="sheen" aria-hidden="true" />
+                  <span className="relative">turn on camera</span>
                 </button>
               </div>
             </div>
@@ -362,9 +423,12 @@ export default function CameraScreen({
 
           {status === "starting" && (
             <div className="animate-fade absolute inset-0 grid place-items-center bg-ink">
-              <p className="t-label animate-pulse text-paper/50">
-                Opening camera
-              </p>
+              <div className="w-40 text-center">
+                <p className="t-label text-paper/50">Opening camera</p>
+                <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
+                  <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
+                </span>
+              </div>
             </div>
           )}
 
@@ -405,13 +469,14 @@ export default function CameraScreen({
           activeId={filterId}
           onSelect={setFilterId}
           disabled={running || status !== "ready"}
+          preview={sample}
         />
       </div>
 
       {/* ---------- Action ---------- */}
-      <footer className="pb-safe shrink-0 px-5 pt-3 pb-4">
+      <footer className="pb-safe gutter shrink-0 pt-3 pb-4">
         {notice && (
-          <p className="t-body animate-fade mb-3 text-center text-[0.9rem] text-paper/55">
+          <p className="t-body animate-toast mb-3 text-center text-[0.9rem] text-paper/55">
             {notice}
           </p>
         )}
@@ -426,20 +491,16 @@ export default function CameraScreen({
             stop
           </button>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={start}
-              disabled={status !== "ready"}
-              className="t-display flex w-full items-center justify-center rounded-2xl bg-pink text-[1.9rem] text-ink transition-transform active:scale-[0.985] disabled:opacity-30"
-              style={{ minHeight: 62 }}
-            >
-              start
-            </button>
-            <p className="t-label mt-3 text-center text-paper/35">
-              3 photos · 5 second countdown
-            </p>
-          </>
+          <button
+            type="button"
+            onClick={start}
+            disabled={status !== "ready"}
+            className="t-display relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-pink text-[1.9rem] text-ink transition-transform active:scale-[0.985] disabled:opacity-30"
+            style={{ minHeight: 62 }}
+          >
+            {status === "ready" && <span className="sheen" aria-hidden="true" />}
+            <span className="relative">start</span>
+          </button>
         )}
       </footer>
     </div>

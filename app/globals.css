@@ -27,6 +27,19 @@
 
   /* --- Motion --- */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* ------------------------------------------------------------
+   LAYOUT CONSTANTS
+   The app is one column, the width of a phone, centred on
+   anything bigger. Everything on every screen lines up to the
+   same left edge — that single gutter is what stops the layout
+   drifting apart between the header, the hero and the footer.
+   ------------------------------------------------------------ */
+:root {
+  --app-width: 32rem;
+  --gutter: 1.5rem;
 }
 
 /* ============================================================
@@ -93,6 +106,115 @@ button {
 }
 
 /* ============================================================
+   THE APP COLUMN
+   ============================================================ */
+
+/*
+ * Everything lives inside this. On a phone it's the whole screen;
+ * on a laptop it's a phone-width column with hairlines down both
+ * sides, so the photobooth reads as a deliberate object rather
+ * than a mobile page stretched across a monitor.
+ *
+ * container-type lets the hero size itself against this column
+ * (cqw units) instead of the viewport, so the type fills the same
+ * proportion of the screen on a phone and on a desktop.
+ */
+.app-frame {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--app-width);
+  height: 100dvh;
+  margin-inline: auto;
+  container-type: inline-size;
+  isolation: isolate;
+}
+
+@media (min-width: 34rem) {
+  .app-frame {
+    border-inline: 1px solid var(--color-hairline);
+  }
+}
+
+/* The one gutter every screen aligns to. */
+.gutter {
+  padding-inline: var(--gutter);
+}
+
+/* Keeps content clear of the notch and the home indicator. */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+/* Horizontal scrollers with no visible scrollbar (filter rail). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   BACKDROP
+   A dot field, a drifting light bar and a film grain, sitting
+   behind everything. Flat colours only — no gradient surfaces.
+   ============================================================ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.backdrop-dots {
+  position: absolute;
+  inset: -20%;
+  background-image: radial-gradient(
+    circle,
+    rgba(240, 78, 152, 0.16) 1.1px,
+    transparent 1.1px
+  );
+  background-size: 26px 26px;
+  animation: drift 40s linear infinite;
+}
+
+/* A slow bar of light crossing the screen, like a room light
+   passing over the booth. */
+.backdrop-sweep {
+  position: absolute;
+  inset-inline: 0;
+  height: 45vh;
+  top: -45vh;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(240, 78, 152, 0.05),
+    transparent
+  );
+  animation: sweep 14s var(--ease-out-soft) infinite;
+}
+
+/*
+ * A small tile that repeats, not one turbulence the size of the
+ * screen — rasterising noise over a full phone viewport is slow on
+ * the sort of handset that turns up at a gig.
+ */
+.backdrop-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-size: 160px 160px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
    ANIMATION — short, snappy, never in the way
    ============================================================ */
 
@@ -116,6 +238,100 @@ button {
   }
 }
 
+/* A whole screen arriving. */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-screen {
+  animation: screen-in 0.45s var(--ease-out-soft) both;
+}
+
+/* Display type climbing out of its own line. */
+@keyframes char-in {
+  from {
+    opacity: 0;
+    transform: translateY(105%) rotate(3deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+
+/*
+ * Clips the letters to their line so they rise out of nothing.
+ * The padding gives ascenders and descenders room — .t-display runs
+ * a 0.85 line-height, so the glyphs are taller than their box — and
+ * the matching negative margin hands that room back, keeping the
+ * leading exactly as tight as it was.
+ *
+ * Stack these in a flex column, not a plain block: flex items don't
+ * collapse their margins, so the two negative margins between two
+ * lines both count and the leading stays put.
+ */
+.line-mask {
+  display: block;
+  overflow: hidden;
+  padding-block: 0.2em;
+  margin-block: -0.2em;
+}
+
+.char {
+  display: inline-block;
+  white-space: pre;
+  animation: char-in 0.72s var(--ease-out-soft) both;
+}
+
+/* The endless ticker. Two identical runs, one screen apart. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 26s linear infinite;
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-26px, -26px, 0);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(190vh);
+    opacity: 0;
+  }
+}
+
 /* The three home-screen cells filling in turn — the rhythm of a shoot. */
 @keyframes cell-pulse {
   0%,
@@ -129,11 +345,54 @@ button {
   }
 }
 
+/* A blinking dot. The booth is awake. */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(0.82);
+  }
+}
+
+.animate-blink {
+  animation: blink 1.8s var(--ease-out-soft) infinite;
+}
+
+/* Light travelling across the pink button. */
+@keyframes sheen {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  55%,
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+.sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.42),
+    transparent
+  );
+  animation: sheen 3.6s var(--ease-out-soft) infinite;
+  pointer-events: none;
+}
+
 /* Countdown digit: lands hard, then settles. */
 @keyframes count-pop {
   0% {
     opacity: 0;
-    transform: scale(1.45);
+    transform: scale(1.5);
   }
   22% {
     opacity: 1;
@@ -147,6 +406,131 @@ button {
 
 .animate-count {
   animation: count-pop 0.5s var(--ease-out-soft) both;
+}
+
+/* The ring around the countdown, draining over five seconds. */
+@keyframes ring-drain {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: var(--ring-length);
+  }
+}
+
+/* Viewfinder brackets breathing while the countdown runs. */
+@keyframes bracket-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(0.965);
+  }
+}
+
+.animate-brackets {
+  animation: bracket-pulse 1s var(--ease-out-soft) infinite;
+}
+
+/* A photo landing in the strip. */
+@keyframes cell-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.82);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-land {
+  animation: cell-land 0.5s var(--ease-spring) both;
+}
+
+/* Camera flash. */
+@keyframes flash-pop {
+  0% {
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* A photo coming up in the developer tray. */
+@keyframes develop {
+  0% {
+    opacity: 0.15;
+    filter: brightness(0.25) contrast(2.2) saturate(0.2);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1) contrast(1) saturate(1);
+  }
+}
+
+.animate-develop {
+  animation: develop 2.6s var(--ease-out-soft) both;
+}
+
+/* The finished poster printing out of the slot, top edge first. */
+@keyframes print-out {
+  0% {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-7%);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+.animate-print {
+  animation: print-out 1.05s cubic-bezier(0.16, 0.9, 0.3, 1) both;
+}
+
+/* A bar of light travelling along a rule. */
+@keyframes track-run {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-track {
+  animation: track-run 1.5s var(--ease-out-soft) infinite;
+}
+
+/* Toast sliding up from the action bar. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-toast {
+  animation: toast-in 0.35s var(--ease-spring) both;
 }
 
 /* Shutter bar draining across the bottom of the preview. */
@@ -175,19 +559,6 @@ button {
   animation: strip-reveal 0.7s var(--ease-out-soft) both;
 }
 
-/* Camera flash. */
-@keyframes flash-pop {
-  0% {
-    opacity: 0;
-  }
-  14% {
-    opacity: 0.92;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 .animate-rise {
   animation: rise-in 0.55s var(--ease-out-soft) both;
 }
@@ -212,6 +583,9 @@ button {
 .delay-5 {
   animation-delay: 0.3s;
 }
+.delay-6 {
+  animation-delay: 0.36s;
+}
 
 /* Anyone who has asked their device to reduce motion gets a still app. */
 @media (prefers-reduced-motion: reduce) {
@@ -224,33 +598,6 @@ button {
   }
 }
 
-/* ============================================================
-   UTILITIES
-   ============================================================ */
-
-/* Full viewport height that accounts for mobile browser chrome. */
-.h-screen-safe {
-  height: 100dvh;
-}
-
-/* Keeps content clear of the notch and the home indicator. */
-.pt-safe {
-  padding-top: max(env(safe-area-inset-top), 0px);
-}
-
-.pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom), 0px);
-}
-
-/* Horizontal scrollers with no visible scrollbar (filter rail). */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
 /* ------------------------------------------------------------
    CAMERA PREVIEW
    A square that grows to fill whatever room the screen has left
@@ -259,14 +606,9 @@ button {
    ------------------------------------------------------------ */
 .preview-box {
   aspect-ratio: 1;
-  width: min(100%, calc(100dvh - 22rem));
-  max-width: 560px;
+  /* 23rem is the header, the reel, the filter rail and the buttons.
+     Whichever runs out first — the width of the column or what's
+     left of the height — decides how big the preview gets. */
+  width: min(100%, calc(100dvh - 23rem));
   margin-inline: auto;
-}
-
-@media (min-width: 1024px) {
-  .preview-box {
-    width: min(100%, calc(100dvh - 20rem));
-    max-width: 620px;
-  }
 }

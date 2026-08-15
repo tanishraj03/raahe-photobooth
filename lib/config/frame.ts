@@ -1,20 +1,39 @@
 /**
  * FRAME CONFIG
  * ----------------------------------------------------------------
- * Everything about the printed photo strip lives here. Change a
- * number, save, and the exported image changes with it — the layout
- * works itself out from these values, nothing is hard-coded.
+ * Everything about the exported image lives here. Change a number,
+ * save, and the picture changes with it — lib/compose.ts works the
+ * whole layout out from these values, nothing is hard-coded.
  *
- * All sizes are in pixels at the export resolution (photoWidth).
+ * THE SHAPE
+ * The export is 4:5 (1080 × 1350), the ratio Instagram gives the most
+ * room to. A three-photo strip is about 1:3, so it can never fill a
+ * 4:5 frame on its own — instead the strip runs down the left as a
+ * film card, and the event sits beside it in the right-hand column.
+ * That's what turns a strip into something worth posting.
+ *
+ *      ┌──────────────────────────────┐
+ *      │ ┌────────┐                   │
+ *      │ │ photo  │   [logo]          │
+ *      │ ├────────┤                   │
+ *      │ │ photo  │   raahe           │
+ *      │ ├────────┤   open            │
+ *      │ │ photo  │   mic             │
+ *      │ └────────┘   ─────────       │
+ *      │              VENUE           │
+ *      │              22.08.2026      │
+ *      └──────────────────────────────┘
+ *
+ * All sizes are pixels at export resolution.
  */
 
 export const FRAME = {
-  /* ---------------- Photo shape ---------------- */
+  /* ---------------- Each photo ---------------- */
 
   /**
-   * Width divided by height of each photo.
-   *   1     = square       (fills a phone screen, frames faces well)
-   *   0.8   = 4:5 portrait (taller, narrower strip)
+   * Width divided by height of a single photo.
+   *   1     = square       (fills the strip well, frames faces)
+   *   0.8   = 4:5 portrait (taller cells, narrower strip)
    *   1.25  = 5:4 landscape
    *
    * If you change this, also change `aspect-ratio` in the
@@ -22,64 +41,112 @@ export const FRAME = {
    */
   cellAspect: 1,
 
-  /** Pixel width of the exported strip. 1080 is plenty for Instagram. */
+  /** Pixel width each photo is captured at, before it's placed. */
   photoWidth: 1080,
 
   /** JPEG quality of each captured photo, 0 to 1. */
   photoQuality: 0.92,
 
-  /** JPEG quality of the finished strip. */
-  exportQuality: 0.95,
+  /** JPEG quality of the finished image. */
+  exportQuality: 0.94,
 
-  /* ---------------- Strip ---------------- */
+  /* ---------------- The poster ---------------- */
 
-  /** Space between the strip edge and its contents. */
-  padding: 56,
-  /** Space between the three photos. */
-  photoGap: 18,
-  /** Corner rounding on each photo. */
-  photoRadius: 14,
-  /** Corner rounding on the strip itself. */
-  cornerRadius: 36,
-  /** The pink keyline around the whole strip. Set to 0 to remove it. */
-  borderWidth: 8,
+  poster: {
+    /** 4:5. Instagram's tallest feed crop. */
+    width: 1080,
+    height: 1350,
+    /** Space between the poster edge and everything in it. */
+    margin: 54,
+    /** Space between the strip card and the event column. */
+    columnGap: 46,
+    /** Faint dot field over the background. Set to 0 to remove. */
+    dotSize: 2.5,
+    dotSpacing: 46,
+    /** Little printer's crop marks in the corners. */
+    cropMarks: true,
+    cropMarkLength: 26,
+    cropMarkInset: 22,
+    cropMarkWidth: 2,
+  },
 
-  /* ---------------- Event plate ---------------- */
+  /* ---------------- The strip card ---------------- */
 
-  /** Space between the last photo and the pink rule. */
-  ruleGapTop: 46,
-  ruleHeight: 3,
-  /** Space between the pink rule and the event name. */
-  ruleGapBottom: 42,
+  strip: {
+    /** Space inside the card. Also the lane the sprockets run down. */
+    pad: 30,
+    /** Space between photos. */
+    photoGap: 14,
+    /** Corner rounding on each photo. */
+    photoRadius: 10,
+    /** Corner rounding on the card. */
+    radius: 22,
+    /** Hairline around the card. Set to 0 to remove it. */
+    borderWidth: 2,
+    /** Film perforations down both edges. Set enabled to false to drop. */
+    sprocket: {
+      enabled: true,
+      width: 10,
+      height: 20,
+      gap: 26,
+      radius: 4,
+    },
+  },
 
-  /** Height of the logo. Its width follows from its own proportions. */
-  logoHeight: 78,
-  /** Space between the logo and the event name. */
-  logoGap: 26,
+  /* ---------------- The event column ---------------- */
 
-  /** Event name. Shrinks automatically if the name is long. */
-  titleSize: 82,
-  /** Letter spacing as a fraction of the font size. Negative = tighter. */
-  titleTracking: -0.045,
+  brand: {
+    /**
+     * The column has two anchors and air in between: the date sits
+     * on the top edge of the strip, and the mark, name, rule and
+     * venue hang together off its bottom edge. Those two shared
+     * edges are what make the two columns read as one picture.
+     */
 
-  /** Space between the event name and the venue line. */
-  metaGap: 34,
-  venueSize: 26,
-  venueTracking: 0.16,
-  dateSize: 34,
+    /** Height of the logo. Its width follows its own proportions. */
+    logoHeight: 58,
+    /** Space between the logo and the event name. */
+    logoGap: 30,
+
+    /**
+     * Event name. Starts here and shrinks until the longest word
+     * fits the column, so the type is always set to the measure.
+     */
+    nameSize: 200,
+    nameTracking: -0.045,
+    nameLineHeight: 0.86,
+
+    /** The pink rule under the name. */
+    ruleGapTop: 34,
+    ruleHeight: 3,
+    ruleGapBottom: 30,
+
+    /** Venue. Wraps by word. Its last line sits on the card's baseline. */
+    venueSize: 22,
+    venueTracking: 0.16,
+    venueLineGap: 13,
+
+    /** Date, at the top of the column. */
+    dateSize: 30,
+    dateTracking: 0.02,
+  },
 
   /* ---------------- Colours ---------------- */
 
   colors: {
     background: "#212121",
-    border: "#F04E98",
-    rule: "#F04E98",
-    photoWell: "#151515",
+    dot: "rgba(240, 78, 152, 0.11)",
+    card: "#171717",
+    cardBorder: "rgba(244, 245, 245, 0.10)",
+    photoWell: "#111111",
+    sprocket: "rgba(240, 78, 152, 0.5)",
+    cropMark: "rgba(240, 78, 152, 0.4)",
     title: "#F4F5F5",
-    venue: "rgba(244, 245, 245, 0.55)",
+    rule: "#F04E98",
+    venue: "rgba(244, 245, 245, 0.5)",
     date: "#F04E98",
   },
 } as const;
 
-/** Height of one photo, worked out from the settings above. */
+/** Height of one captured photo, worked out from the settings above. */
 export const PHOTO_HEIGHT = Math.round(FRAME.photoWidth / FRAME.cellAspect);
