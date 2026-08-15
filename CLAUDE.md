@@ -2,7 +2,7 @@
 
 A mobile-first web photobooth for the Raahe Open Mic event. Someone at the venue
 scans a QR code, takes 3 photos with a 5-second countdown before each, picks a
-filter, and gets a branded 4:5 poster they can save and post.
+filter, and gets a branded 9:16 poster they can save and post to their story.
 
 Live on Vercel. Deploys automatically on push to `main`.
 
@@ -50,6 +50,7 @@ app/
     ResultScreen.tsx      Developing state, poster reveal, save/share
 components/
   BrandMark.tsx           Logo with typographic fallback
+  MicMark.tsx             The mic, as halftone SVG
   Backdrop.tsx            Fixed dot field, light sweep, grain
   Marquee.tsx             Endless tracked-caps ticker
   RiseText.tsx            Display type revealed letter by letter
@@ -63,7 +64,8 @@ lib/
     frame.ts              All poster geometry and colours
   camera.ts               useCamera hook: permissions, errors, device switching
   capture.ts              Video frame → filtered JPEG
-  compose.ts              Three photos → branded 4:5 poster (Canvas)
+  compose.ts              Three photos → branded 9:16 poster (Canvas)
+  mic.ts                  Mic geometry, shared by the SVG and the canvas
   filters.ts              The 14 filters
   washes.ts               A colour layer, described once, rendered as CSS or canvas
   grain.ts                One noise tile, shared by the preview and the capture
@@ -81,20 +83,40 @@ Only touch `compose.ts` when adding a genuinely new element to the design.
 
 ## The exported poster
 
-The export is **4:5, 1080 × 1350** — the tallest crop Instagram gives a feed
-post. (Stories are 9:16 and will letterbox it, which is fine.)
+The export is **9:16, 1080 × 1920** — a full Instagram story, edge to edge, no
+letterboxing.
 
-A three-photo strip is about 1:3, so it can't fill a 4:5 frame on its own.
-Instead the strip runs down the left as a film card with sprocket perforations,
-and the event sits in the column beside it:
+A three-photo strip is about 1:3, so it can't fill a story frame on its own. The
+strip runs down the left as a film card with sprocket perforations, and the
+event sits in the column beside it, under the mic:
 
-- the **date** sits on the top edge of the card
-- the **mark, name, rule and venue** hang together off its bottom edge
+- **rails** top and bottom — logo and date above, a tracked ticker below
+- the **name, rule and venue** hang together off the foot of the strip card, so
+  both columns share a baseline
 - the name is set to the measure — `nameSize` is a starting point that shrinks
   until the longest word fits the column
+- the **mic** fills whatever is left above the name
 
-Those two shared edges are what make the two columns read as one picture. The
-air between them is deliberate.
+`stripWidthShare` is the dial to turn: raise it for bigger photos, lower it for
+a wider event column.
+
+## The mic
+
+`lib/mic.ts` holds the microphone as SVG path data in a 240 × 480 box, and
+renders it twice — as SVG through `components/MicMark.tsx` on screen, and as a
+halftone onto the poster through `paintMic()`. Canvas takes SVG path data
+straight through `Path2D`, so the shape is only stated once.
+
+The halftone is built by filling a tile with dots and then keeping only the part
+that lands inside the mic, so the dots stay on one grid across the whole shape.
+That's what makes it read as print rather than as texture. `MIC_SLOTS` punches
+the grille back out — without those slots the head is just a lozenge.
+
+This is our own drawing of a microphone, echoing the mic on the event posters.
+It is not traced from the illustrations in the brand guide, and that distinction
+matters — see the hard constraints above.
+
+Turn the whole thing off with `FRAME.mic.enabled`.
 
 ## Design language
 
@@ -119,9 +141,15 @@ Prefer these over ad-hoc font sizing. No cards, no gradients, no shadows.
 ### The app column
 
 Every screen renders inside `.app-frame` in `page.tsx`: one column, `--app-width`
-wide, centred, with hairlines down both sides on anything larger than a phone.
-Without it the layout stretches across a monitor and falls apart, which is what
-it used to do.
+wide, centred on the `.app-stage`. On a phone it fills the screen. On anything
+larger it becomes a booth panel — capped in **both** directions, bordered and
+rounded — because a phone layout stretched to the full height of a monitor is
+nobody's idea of a design.
+
+**Heights are `100svh`, never `100dvh`.** `svh` is the small viewport, the one
+you get with a mobile browser's toolbars showing. Size to `dvh` and the moment a
+toolbar slides back in the layout is taller than the screen and the bottom gets
+cut off.
 
 `.app-frame` is also a **container** (`container-type: inline-size`), so hero
 type sizes in `cqw` against the column rather than `vw` against the viewport —
@@ -181,6 +209,11 @@ plate looks wrong. Use the `drawText` and `measure` helpers, not raw `fillText`.
 **Text auto-shrinks and wraps to fit.** `fitSize` steps the event name, venue and
 date down until they fit the column, and `wrapText` breaks them into lines. Don't
 remove either — they're what make the poster reusable for other events.
+
+**The camera can be flipped at any point, including mid-countdown.** That tears
+the stream down and builds a new one, so for a moment there is no frame to grab.
+The capture phase in `CameraScreen` retries a few times before giving up —
+`CAPTURE_RETRIES`. Don't "simplify" that back into a single attempt.
 
 **`.line-mask` lines must sit in a flex column.** `RiseText` clips each line so
 the letters rise out of it, using padding plus a matching negative margin. Flex

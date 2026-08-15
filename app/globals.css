@@ -38,7 +38,7 @@
    drifting apart between the header, the hero and the footer.
    ------------------------------------------------------------ */
 :root {
-  --app-width: 32rem;
+  --app-width: 28rem;
   --gutter: 1.5rem;
 }
 
@@ -110,10 +110,29 @@ button {
    ============================================================ */
 
 /*
+ * The stage holds the booth in the middle of whatever screen it
+ * finds itself on.
+ */
+.app-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  min-height: 100svh;
+}
+
+/*
  * Everything lives inside this. On a phone it's the whole screen;
- * on a laptop it's a phone-width column with hairlines down both
- * sides, so the photobooth reads as a deliberate object rather
- * than a mobile page stretched across a monitor.
+ * on anything bigger it becomes a fixed booth panel — capped in
+ * both directions and centred — because a phone layout stretched to
+ * the full height of a monitor is nobody's idea of a design.
+ *
+ * The height is 100svh, not 100dvh: svh is the *small* viewport, the
+ * one you get with the browser's toolbars showing. Sizing to dvh
+ * means that when a mobile toolbar slides back in, the layout is
+ * suddenly taller than the screen and the bottom gets cut off.
  *
  * container-type lets the hero size itself against this column
  * (cqw units) instead of the viewport, so the type fills the same
@@ -121,18 +140,21 @@ button {
  */
 .app-frame {
   position: relative;
-  z-index: 1;
   width: 100%;
   max-width: var(--app-width);
   height: 100dvh;
+  height: 100svh;
   margin-inline: auto;
   container-type: inline-size;
   isolation: isolate;
 }
 
-@media (min-width: 34rem) {
+@media (min-width: 34rem) and (min-height: 44rem) {
   .app-frame {
-    border-inline: 1px solid var(--color-hairline);
+    height: min(100svh - 3rem, 56rem);
+    border: 1px solid var(--color-hairline);
+    border-radius: 30px;
+    overflow: hidden;
   }
 }
 
@@ -343,6 +365,21 @@ button {
   40% {
     background-color: var(--color-pink);
   }
+}
+
+/* The mic breathing behind the hero. */
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(-1.2deg);
+  }
+}
+
+.animate-float {
+  animation: float-slow 9s ease-in-out infinite;
 }
 
 /* A blinking dot. The booth is awake. */

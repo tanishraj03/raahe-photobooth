@@ -17,6 +17,14 @@ const SAMPLE_SIZE = 96;
 /** How often that still is refreshed while you're choosing. */
 const SAMPLE_EVERY_MS = 2600;
 
+/**
+ * Flipping the camera tears the stream down and builds a new one, so
+ * for a moment there's no frame to grab. If the shutter lands in that
+ * window we wait and try again rather than losing the photo.
+ */
+const CAPTURE_RETRIES = 6;
+const CAPTURE_RETRY_MS = 130;
+
 /** Where we are in the shoot. */
 type Phase =
   | { kind: "ready" }
@@ -170,27 +178,41 @@ export default function CameraScreen({
       if (takenRef.current.has(phase.shot)) return;
       takenRef.current.add(phase.shot);
 
-      const video = videoRef.current;
-      const shot = video
-        ? captureFrame(video, filterRef.current, mirroredRef.current)
-        : null;
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      let tries = 0;
 
-      setFlash(true);
-      if (shot) setPhotos((previous) => [...previous, shot]);
+      const attempt = () => {
+        const video = videoRef.current;
+        const shot = video
+          ? captureFrame(video, filterRef.current, mirroredRef.current)
+          : null;
 
-      const clearFlash = setTimeout(() => setFlash(false), 380);
-      const advance = setTimeout(() => {
-        setPhase(
-          phase.shot < TOTAL_SHOTS - 1
-            ? { kind: "between", shot: phase.shot + 1 }
-            : { kind: "done" },
+        // No frame yet — the camera is probably still coming back up
+        // after a flip. Give it a moment.
+        if (!shot && tries < CAPTURE_RETRIES) {
+          tries++;
+          timers.push(setTimeout(attempt, CAPTURE_RETRY_MS));
+          return;
+        }
+
+        setFlash(true);
+        if (shot) setPhotos((previous) => [...previous, shot]);
+
+        timers.push(setTimeout(() => setFlash(false), 380));
+        timers.push(
+          setTimeout(() => {
+            setPhase(
+              phase.shot < TOTAL_SHOTS - 1
+                ? { kind: "between", shot: phase.shot + 1 }
+                : { kind: "done" },
+            );
+          }, 560),
         );
-      }, 560);
-
-      return () => {
-        clearTimeout(clearFlash);
-        clearTimeout(advance);
       };
+
+      attempt();
+
+      return () => timers.forEach(clearTimeout);
     }
 
     if (phase.kind === "between") {
@@ -289,35 +311,9 @@ export default function CameraScreen({
             {statusLine}
           </p>
 
-          <button
-            type="button"
-            onClick={() => void flip()}
-            disabled={!canFlip || running}
-            aria-label="Switch camera"
-            className="grid size-11 place-items-center rounded-full text-paper/70 transition-all duration-300 active:rotate-180 active:text-paper disabled:opacity-25"
-          >
-            <svg
-              width="21"
-              height="21"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M4 8a8 8 0 0 1 13.5-5.5M20 16A8 8 0 0 1 6.5 21.5"
-                stroke="currentColor"
-                strokeWidth="2.1"
-                strokeLinecap="round"
-              />
-              <path
-                d="M4 3v5h5M20 21v-5h-5"
-                stroke="currentColor"
-                strokeWidth="2.1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          {/* Balances the close button so the status line stays centred.
+              Flipping lives on the preview now. */}
+          <span className="size-11" aria-hidden="true" />
         </div>
       </header>
 
@@ -390,6 +386,41 @@ export default function CameraScreen({
               className="pointer-events-none absolute inset-0 bg-white"
               style={{ animation: "flash-pop 380ms ease-out forwards" }}
             />
+          )}
+
+          {/* Flip — on the preview, thumb-high, and live for the whole
+              shoot. Turning round between photos is the point of a
+              photobooth, so nothing about it is locked. */}
+          {canFlip && (
+            <button
+              type="button"
+              onClick={() => void flip()}
+              aria-label="Switch camera"
+              className="group animate-fade absolute right-3 bottom-3 grid size-14 place-items-center rounded-full bg-ink/75 text-pink ring-1 ring-paper/25 transition-transform duration-300 active:scale-90 active:ring-pink"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="transition-transform duration-500 ease-[var(--ease-out-soft)] group-active:rotate-180"
+              >
+                <path
+                  d="M4 8a8 8 0 0 1 13.5-5.5M20 16A8 8 0 0 1 6.5 21.5"
+                  stroke="currentColor"
+                  strokeWidth="2.1"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M4 3v5h5M20 21v-5h-5"
+                  stroke="currentColor"
+                  strokeWidth="2.1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           )}
 
           {/* ---------- Overlays: permission, loading, failure ---------- */}

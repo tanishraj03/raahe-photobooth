@@ -166,7 +166,9 @@ export default function ResultScreen({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="pt-safe gutter shrink-0 pt-3 pb-3">
+      {/* Kept tight: the poster is 9:16, so every pixel this header
+          doesn't take is a pixel the picture gets. */}
+      <header className="pt-safe gutter shrink-0 pt-3 pb-2">
         <p className="t-label animate-rise flex items-center gap-2.5 text-pink">
           <span
             aria-hidden="true"
@@ -174,7 +176,7 @@ export default function ResultScreen({
           />
           Photo strip ready
         </p>
-        <h1 className="t-display animate-rise delay-1 mt-2 text-[1.95rem] text-paper sm:text-[2.4rem]">
+        <h1 className="t-display animate-rise delay-1 mt-1.5 text-[1.7rem] text-paper">
           your raahe moment{" "}
           <span className="text-[0.7em] leading-none">✨</span>
         </h1>
@@ -196,9 +198,9 @@ export default function ResultScreen({
         </button>
       </main>
 
-      <footer className="pb-safe gutter shrink-0 pt-3 pb-4">
+      <footer className="pb-safe gutter shrink-0 pt-2 pb-3">
         <p
-          className="t-label mb-3 flex h-4 items-center justify-center text-paper/45"
+          className="t-label mb-2 flex h-4 items-center justify-center text-paper/45"
           aria-live="polite"
         >
           {toast ? (
@@ -213,8 +215,8 @@ export default function ResultScreen({
         <button
           type="button"
           onClick={save}
-          className="t-display relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-pink text-[1.8rem] text-ink transition-transform active:scale-[0.985]"
-          style={{ minHeight: 62 }}
+          className="t-display relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-pink text-[1.7rem] text-ink transition-transform active:scale-[0.985]"
+          style={{ minHeight: 58 }}
         >
           <span className="sheen" aria-hidden="true" />
           {saved && (
@@ -243,8 +245,8 @@ export default function ResultScreen({
             <button
               type="button"
               onClick={() => void share()}
-              className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.35rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
-              style={{ minHeight: 56 }}
+              className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.3rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
+              style={{ minHeight: 52 }}
             >
               share
             </button>
@@ -282,7 +284,7 @@ export default function ResultScreen({
           <img
             src={strip!.url}
             alt="Your Raahe Open Mic photo strip"
-            className="animate-fade mx-auto block w-full max-w-[620px] px-4 pb-10"
+            className="animate-fade mx-auto block w-full max-w-[460px] px-4 pb-10"
           />
         </div>
       )}

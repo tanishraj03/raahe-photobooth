@@ -49,9 +49,11 @@ export default function Page() {
   return (
     <>
       <Backdrop />
-      <div className="app-frame">
-        <div key={stage.name} className="animate-screen h-full">
-          {screen()}
+      <div className="app-stage">
+        <div className="app-frame">
+          <div key={stage.name} className="animate-screen h-full">
+            {screen()}
+          </div>
         </div>
       </div>
     </>

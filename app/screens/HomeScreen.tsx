@@ -2,6 +2,7 @@
 
 import BrandMark from "@/components/BrandMark";
 import Marquee from "@/components/Marquee";
+import MicMark from "@/components/MicMark";
 import RiseText from "@/components/RiseText";
 import { EVENT } from "@/lib/config/event";
 
@@ -26,8 +27,17 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
       </header>
 
       {/* ---------- Hero ---------- */}
-      <main className="gutter flex min-h-0 flex-1 flex-col justify-center py-8">
-        <p className="t-label animate-rise flex items-center gap-2.5 text-pink">
+      <main className="gutter relative flex min-h-0 flex-1 flex-col justify-center py-7">
+        {/* The same mic that ends up on the poster, breathing behind
+            the type. Decorative, and under everything. */}
+        <div
+          aria-hidden="true"
+          className="animate-fade pointer-events-none absolute inset-y-0 right-[-3rem] z-0 flex items-center"
+        >
+          <MicMark className="animate-float h-[92%] w-auto text-pink/20" />
+        </div>
+
+        <p className="t-label animate-rise relative z-10 flex items-center gap-2.5 text-pink">
           <span
             aria-hidden="true"
             className="animate-blink block size-[7px] rounded-full bg-pink"
@@ -36,7 +46,7 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
         </p>
 
         {/* flex, so the masked lines keep .t-display's tight leading */}
-        <h1 className="t-display mt-5 flex flex-col text-[clamp(3.75rem,26cqw,8.5rem)] text-paper">
+        <h1 className="t-display relative z-10 mt-5 flex flex-col text-[clamp(3.5rem,25cqw,8rem)] text-paper">
           <RiseText text="photo" delay={0.08} />
           <RiseText text="booth" delay={0.22} />
         </h1>
@@ -44,7 +54,7 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
         {/* Three cells filling in turn, on a rail that runs off the
             edge — the rhythm of the shoot. */}
         <div
-          className="animate-rise delay-3 mt-8 flex items-center"
+          className="animate-rise delay-3 relative z-10 mt-7 flex items-center"
           aria-hidden="true"
         >
           {[0, 1, 2].map((i) => (
@@ -60,7 +70,7 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
           <span className="ml-1 h-px flex-1 bg-hairline" />
         </div>
 
-        <p className="t-body animate-rise delay-4 mt-6 max-w-[22ch] text-[1.15rem] text-paper/60 sm:text-[1.3rem]">
+        <p className="t-body animate-rise delay-4 relative z-10 mt-6 max-w-[20ch] text-[1.1rem] text-paper/60 sm:text-[1.25rem]">
           {EVENT.tagline}
         </p>
       </main>

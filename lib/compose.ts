@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  EVENT,
-  LOGO_FALLBACK_TEXT,
-  LOGO_SOURCES,
-} from "@/lib/config/event";
+import { EVENT, LOGO_FALLBACK_TEXT, LOGO_SOURCES } from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
+import { MIC_BOX, paintMic } from "@/lib/mic";
 
 /* ================================================================
    TYPE HELPERS
@@ -34,12 +31,11 @@ function fontStack(): string {
 async function waitForFont(stack: string) {
   if (typeof document === "undefined" || !document.fonts) return;
   const primary = stack.split(",")[0].trim();
-  const B = FRAME.brand;
   try {
     await Promise.all([
-      document.fonts.load(`800 ${B.nameSize}px ${primary}`),
-      document.fonts.load(`600 ${B.venueSize}px ${primary}`),
-      document.fonts.load(`700 ${B.dateSize}px ${primary}`),
+      document.fonts.load(`800 ${FRAME.brand.nameSize}px ${primary}`),
+      document.fonts.load(`600 ${FRAME.brand.venueSize}px ${primary}`),
+      document.fonts.load(`700 ${FRAME.rails.dateSize}px ${primary}`),
     ]);
   } catch {
     // Loading by name can fail on some browsers. The next line still helps.
@@ -174,13 +170,7 @@ function roundRectPath(
   const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   const context = ctx as CanvasRenderingContext2D & {
-    roundRect?: (
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      r: number,
-    ) => void;
+    roundRect?: (x: number, y: number, w: number, h: number, r: number) => void;
   };
   if (typeof context.roundRect === "function") {
     context.roundRect(x, y, w, h, radius);
@@ -209,8 +199,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 /**
  * Finds the real logo file. Returns null if none is there yet, in
- * which case the column falls back to the brand name set in type —
- * we never draw an invented stand-in for the Raahe logo.
+ * which case the rail falls back to the brand name set in type — we
+ * never draw an invented stand-in for the Raahe logo.
  */
 async function loadLogo(): Promise<HTMLImageElement | null> {
   for (const source of LOGO_SOURCES) {
@@ -238,15 +228,17 @@ export type Strip = {
 };
 
 /**
- * Draws the three photos into the branded 4:5 poster and returns it
- * as a JPEG. Runs entirely in the browser — no photo ever leaves the
- * device.
+ * Draws the three photos into the branded 9:16 story poster and
+ * returns it as a JPEG. Runs entirely in the browser — no photo ever
+ * leaves the device.
  */
 export async function composeStrip(photos: string[]): Promise<Strip> {
   const F = FRAME;
   const P = F.poster;
+  const R = F.rails;
   const S = F.strip;
   const B = F.brand;
+  const M = F.mic;
   const stack = fontStack();
 
   const [images, logo] = await Promise.all([
@@ -257,17 +249,26 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   const width = P.width;
   const height = P.height;
+  const contentWidth = width - P.margin * 2;
   const count = Math.max(1, images.length);
+
+  /* ---------------- Rails ---------------- */
+
+  const headerHeight = Math.max(R.logoHeight, R.dateSize);
+  const headerRuleY = P.margin + headerHeight + R.gapUnder;
+  const bodyTop = headerRuleY + R.ruleHeight + R.bodyGap;
+
+  const tickerTop = height - P.margin - R.tickerSize;
+  const footerRuleY = tickerTop - R.tickerGap - R.ruleHeight;
+  const bodyHeight = footerRuleY - R.bodyGap - bodyTop;
 
   /* ---------------- Strip card ---------------- */
 
-  // The card is sized by whichever runs out first: the height of the
-  // poster, or the share of its width the card is allowed to take.
+  // Sized by whichever runs out first: the height of the body, or
+  // the share of the width the card is allowed to take.
   const gaps = S.photoGap * (count - 1);
-  const cellFromHeight = Math.floor(
-    (height - P.margin * 2 - S.pad * 2 - gaps) / count,
-  );
-  const widthCap = Math.round(width * 0.56) - S.pad * 2;
+  const cellFromHeight = Math.floor((bodyHeight - S.pad * 2 - gaps) / count);
+  const widthCap = Math.round(width * P.stripWidthShare) - S.pad * 2;
 
   const cellWidth = Math.max(
     80,
@@ -278,7 +279,8 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const cardWidth = cellWidth + S.pad * 2;
   const cardHeight = cellHeight * count + gaps + S.pad * 2;
   const cardX = P.margin;
-  const cardY = Math.round((height - cardHeight) / 2);
+  const cardY = bodyTop + Math.round((bodyHeight - cardHeight) / 2);
+  const cardBottom = cardY + cardHeight;
 
   /* ---------------- Event column ---------------- */
 
@@ -312,6 +314,160 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
       }
     }
   }
+
+  /* ================================================================
+     MEASURE THE COLUMN
+
+     The name, rule and venue hang together off the foot of the strip
+     card, and the mic fills whatever is left above them — so all of
+     it has to be measured before any of it is drawn.
+     ================================================================ */
+
+  const venue = EVENT.venue.toUpperCase();
+  let venueSize: number = B.venueSize;
+  for (const word of venue.split(/\s+/)) {
+    venueSize = Math.min(
+      venueSize,
+      fitSize(ctx, word, 600, venueSize, B.venueTracking, colWidth, stack),
+    );
+  }
+  ctx.font = `600 ${venueSize}px ${stack}`;
+  const venueLines = wrapText(ctx, venue, colWidth, venueSize * B.venueTracking);
+  const venueHeight =
+    venueLines.length * venueSize + (venueLines.length - 1) * B.venueLineGap;
+
+  const tailHeight =
+    B.ruleGapTop + B.ruleHeight + B.ruleGapBottom + venueHeight;
+
+  const name = EVENT.name.toLowerCase();
+  let nameSize: number = B.nameSize;
+  for (const word of name.split(/\s+/)) {
+    nameSize = Math.min(
+      nameSize,
+      fitSize(ctx, word, 800, nameSize, B.nameTracking, colWidth, stack),
+    );
+  }
+
+  // Keep back a share of the column for the mic, so a long event
+  // name can't crowd it out.
+  const heldForMic = M.enabled ? cardHeight * 0.3 : 0;
+  const nameRoom = cardHeight - tailHeight - heldForMic;
+
+  ctx.font = `800 ${nameSize}px ${stack}`;
+  let nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
+  while (
+    nameLines.length * nameSize * B.nameLineHeight > nameRoom &&
+    nameSize > 22
+  ) {
+    nameSize = Math.floor(nameSize * 0.92);
+    ctx.font = `800 ${nameSize}px ${stack}`;
+    nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
+  }
+
+  const lineHeight = Math.round(nameSize * B.nameLineHeight);
+  const nameHeight = lineHeight * nameLines.length;
+  const blockTop = cardBottom - (nameHeight + tailHeight);
+
+  /* ---------------- The mic, behind everything ---------------- */
+
+  if (M.enabled) {
+    const room = blockTop - M.gapBelow - cardY;
+    const micWidth = Math.min(
+      colWidth * M.widthShare,
+      (room * MIC_BOX.width) / MIC_BOX.height,
+    );
+    const micHeight = (micWidth * MIC_BOX.height) / MIC_BOX.width;
+
+    // Below a certain size it stops reading as a microphone and
+    // starts reading as a smudge. Better to leave it out.
+    if (micWidth > 120) {
+      paintMic(
+        ctx,
+        colX + (colWidth - micWidth) / 2,
+        blockTop - M.gapBelow - micHeight,
+        micWidth,
+        {
+          color: F.colors.mic,
+          alpha: M.alpha,
+          dot: M.dot,
+          spacing: M.spacing,
+          fade: M.fade,
+        },
+      );
+    }
+  }
+
+  /* ---------------- Header rail ---------------- */
+
+  const headerCentre = P.margin + headerHeight / 2;
+
+  if (logo) {
+    const logoWidth = Math.round(
+      (logo.naturalWidth / logo.naturalHeight) * R.logoHeight,
+    );
+    ctx.drawImage(
+      logo,
+      P.margin,
+      Math.round(headerCentre - R.logoHeight / 2),
+      Math.min(logoWidth, contentWidth),
+      R.logoHeight,
+    );
+  } else {
+    // Same typographic fallback the on-screen mark uses. Never a
+    // redrawn approximation of the logo itself.
+    const size = Math.round(R.logoHeight * 0.72);
+    ctx.font = `800 ${size}px ${stack}`;
+    ctx.fillStyle = F.colors.title;
+    drawText(ctx, LOGO_FALLBACK_TEXT, P.margin, headerCentre, size * -0.03);
+  }
+
+  const dateSize = fitSize(
+    ctx,
+    EVENT.date,
+    700,
+    R.dateSize,
+    R.dateTracking,
+    contentWidth / 2,
+    stack,
+  );
+  ctx.font = `700 ${dateSize}px ${stack}`;
+  ctx.fillStyle = F.colors.date;
+  const dateWidth = measure(ctx, EVENT.date, dateSize * R.dateTracking);
+  drawText(
+    ctx,
+    EVENT.date,
+    width - P.margin - dateWidth,
+    headerCentre,
+    dateSize * R.dateTracking,
+  );
+
+  ctx.fillStyle = F.colors.railRule;
+  ctx.fillRect(P.margin, headerRuleY, contentWidth, R.ruleHeight);
+
+  /* ---------------- Footer rail ---------------- */
+
+  ctx.fillStyle = F.colors.railRule;
+  ctx.fillRect(P.margin, footerRuleY, contentWidth, R.ruleHeight);
+
+  const ticker = `${EVENT.name} · ${EVENT.venue} · ${EVENT.date}`.toUpperCase();
+  const tickerSize = fitSize(
+    ctx,
+    ticker,
+    600,
+    R.tickerSize,
+    R.tickerTracking,
+    contentWidth,
+    stack,
+  );
+  ctx.font = `600 ${tickerSize}px ${stack}`;
+  ctx.fillStyle = F.colors.ticker;
+  drawText(
+    ctx,
+    ticker,
+    P.margin,
+    tickerTop + tickerSize / 2,
+    tickerSize * R.tickerTracking,
+  );
 
   /* ---------------- The card ---------------- */
 
@@ -365,10 +521,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     ctx.fillStyle = F.colors.sprocket;
     for (let i = 0; i < runs; i++) {
       const y = firstY + i * step;
-      for (const x of [
-        cardX + inset,
-        cardX + cardWidth - S.pad + inset,
-      ]) {
+      for (const x of [cardX + inset, cardX + cardWidth - S.pad + inset]) {
         roundRectPath(
           ctx,
           x,
@@ -382,108 +535,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     }
   }
 
-  /* ---------------- Date, on the top edge of the strip ---------------- */
-
-  const dateSize = fitSize(
-    ctx,
-    EVENT.date,
-    700,
-    B.dateSize,
-    B.dateTracking,
-    colWidth,
-    stack,
-  );
-  ctx.font = `700 ${dateSize}px ${stack}`;
-  ctx.fillStyle = F.colors.date;
-  drawText(ctx, EVENT.date, colX, cardY + dateSize / 2, dateSize * B.dateTracking);
-
-  /* ---------------- Venue, measured first ---------------- */
-
-  // Measured before the name is placed, because the mark, the name,
-  // the rule and the venue hang together off the card's bottom edge.
-  const venue = EVENT.venue.toUpperCase();
-  let venueSize: number = B.venueSize;
-  for (const word of venue.split(/\s+/)) {
-    venueSize = Math.min(
-      venueSize,
-      fitSize(ctx, word, 600, venueSize, B.venueTracking, colWidth, stack),
-    );
-  }
-  ctx.font = `600 ${venueSize}px ${stack}`;
-  const venueLines = wrapText(
-    ctx,
-    venue,
-    colWidth,
-    venueSize * B.venueTracking,
-  );
-  const venueHeight =
-    venueLines.length * venueSize + (venueLines.length - 1) * B.venueLineGap;
-
-  const tailHeight =
-    B.ruleGapTop + B.ruleHeight + B.ruleGapBottom + venueHeight;
-
-  /* ---------------- Event name ---------------- */
-
-  const name = EVENT.name.toLowerCase();
-  let nameSize: number = B.nameSize;
-  for (const word of name.split(/\s+/)) {
-    nameSize = Math.min(
-      nameSize,
-      fitSize(ctx, word, 800, nameSize, B.nameTracking, colWidth, stack),
-    );
-  }
-
-  // Room the name has between the date at the top of the column and
-  // the rest of the block below it.
-  const nameRoom =
-    cardHeight - dateSize - 40 - B.logoHeight - B.logoGap - tailHeight;
-
-  ctx.font = `800 ${nameSize}px ${stack}`;
-  let nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
-  while (
-    nameLines.length * nameSize * B.nameLineHeight > nameRoom &&
-    nameSize > 22
-  ) {
-    nameSize = Math.floor(nameSize * 0.92);
-    ctx.font = `800 ${nameSize}px ${stack}`;
-    nameLines = wrapText(ctx, name, colWidth, nameSize * B.nameTracking);
-  }
-
-  const lineHeight = Math.round(nameSize * B.nameLineHeight);
-  const nameHeight = lineHeight * nameLines.length;
-
-  /* ---------------- Draw the block, hung off the card's foot ------ */
-
-  const blockTop =
-    cardY + cardHeight - (B.logoHeight + B.logoGap + nameHeight + tailHeight);
-
-  if (logo) {
-    const logoWidth = Math.round(
-      (logo.naturalWidth / logo.naturalHeight) * B.logoHeight,
-    );
-    ctx.drawImage(
-      logo,
-      colX,
-      blockTop,
-      Math.min(logoWidth, colWidth),
-      B.logoHeight,
-    );
-  } else {
-    // Same typographic fallback the on-screen mark uses. Never a
-    // redrawn approximation of the logo itself.
-    const size = Math.round(B.logoHeight * 0.78);
-    ctx.font = `800 ${size}px ${stack}`;
-    ctx.fillStyle = F.colors.title;
-    drawText(
-      ctx,
-      LOGO_FALLBACK_TEXT,
-      colX,
-      blockTop + B.logoHeight / 2,
-      size * -0.03,
-    );
-  }
-
-  const nameTop = blockTop + B.logoHeight + B.logoGap;
+  /* ---------------- Name, rule, venue ---------------- */
 
   ctx.font = `800 ${nameSize}px ${stack}`;
   ctx.fillStyle = F.colors.title;
@@ -492,12 +544,12 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
       ctx,
       line,
       colX,
-      nameTop + index * lineHeight + lineHeight / 2,
+      blockTop + index * lineHeight + lineHeight / 2,
       nameSize * B.nameTracking,
     );
   });
 
-  const ruleY = nameTop + nameHeight + B.ruleGapTop;
+  const ruleY = blockTop + nameHeight + B.ruleGapTop;
   ctx.fillStyle = F.colors.rule;
   ctx.fillRect(colX, ruleY, colWidth, B.ruleHeight);
 
