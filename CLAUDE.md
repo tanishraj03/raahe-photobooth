@@ -49,6 +49,7 @@ app/
     CameraScreen.tsx      Permission, countdown, capture sequence
     ResultScreen.tsx      Developing state, poster reveal, save/share
 components/
+  Cabinet.tsx             The booth: hood, screen, deck. Wraps every stage
   BrandMark.tsx           Logo with typographic fallback
   MicMark.tsx             The mic, as halftone SVG
   Backdrop.tsx            Fixed dot field, light sweep, grain
@@ -64,8 +65,9 @@ lib/
     frame.ts              All poster geometry and colours
   camera.ts               useCamera hook: permissions, errors, device switching
   capture.ts              Video frame → filtered JPEG
-  compose.ts              Three photos → branded 9:16 poster (Canvas)
-  mic.ts                  Mic geometry, shared by the SVG and the canvas
+  compose.ts              Three photos → branded 9:16 story (Canvas)
+  mic.ts                  Mic geometry, for the halftone SVG
+  motifs.ts               The marks that run down the strip's borders
   filters.ts              The 14 filters
   washes.ts               A colour layer, described once, rendered as CSS or canvas
   grain.ts                One noise tile, shared by the preview and the capture
@@ -86,37 +88,54 @@ Only touch `compose.ts` when adding a genuinely new element to the design.
 The export is **9:16, 1080 × 1920** — a full Instagram story, edge to edge, no
 letterboxing.
 
-A three-photo strip is about 1:3, so it can't fill a story frame on its own. The
-strip runs down the left as a film card with sprocket perforations, and the
-event sits in the column beside it, under the mic:
+On it sits one thing: an actual photobooth strip. Three photos in a column,
+generous borders, and the event set out underneath them — mark, name, venue,
+date, centred, the way a real booth prints it.
 
-- **rails** top and bottom — logo and date above, a tracked ticker below
-- the **name, rule and venue** hang together off the foot of the strip card, so
-  both columns share a baseline
-- the name is set to the measure — `nameSize` is a starting point that shrinks
-  until the longest word fits the column
-- the **mic** fills whatever is left above the name
+- the **side borders** carry small music-and-art motifs from `lib/motifs.ts`
+- the **top border** carries a small tracked cap line
+- the **margins** either side of the strip run a repeating ticker, so the space
+  around it is doing something
+- the event block is **reserved at full size** before the photos are measured —
+  two venue lines, everything at its configured size. Text only ever shrinks
+  from there, so the block can never grow into the pictures, and whatever it
+  doesn't use comes back as air around it.
 
-`stripWidthShare` is the dial to turn: raise it for bigger photos, lower it for
-a wider event column.
+## Illustrations
 
-## The mic
+Two families, both our own drawings, both stated once as SVG path data and
+painted onto canvas through `Path2D`:
 
-`lib/mic.ts` holds the microphone as SVG path data in a 240 × 480 box, and
-renders it twice — as SVG through `components/MicMark.tsx` on screen, and as a
-halftone onto the poster through `paintMic()`. Canvas takes SVG path data
-straight through `Path2D`, so the shape is only stated once.
+- `lib/motifs.ts` — the small marks in the strip's borders. Chunky and solid;
+  they have to hold up at 30px. `FRAME.motifs.order` sets the cycle, and the
+  right-hand column runs `offset` steps further through it so the two sides
+  never mirror.
+- `lib/mic.ts` — the vintage broadcast mic, echoing the mic on the event
+  posters. `components/MicMark.tsx` renders it as a halftone behind the hero on
+  the landing page. `MIC_SLOTS` punches the grille out of the head; without
+  those slots it's just a lozenge.
 
-The halftone is built by filling a tile with dots and then keeping only the part
-that lands inside the mic, so the dots stay on one grid across the whole shape.
-That's what makes it read as print rather than as texture. `MIC_SLOTS` punches
-the grille back out — without those slots the head is just a lozenge.
+Neither is traced from the illustrations in the Raahe brand guide, and that
+distinction matters — see the hard constraints above.
 
-This is our own drawing of a microphone, echoing the mic on the event posters.
-It is not traced from the illustrations in the brand guide, and that distinction
-matters — see the hard constraints above.
+## The cabinet
 
-Turn the whole thing off with `FRAME.mic.enabled`.
+The booth is a piece of hardware. `components/Cabinet.tsx` is the machine and
+every stage renders inside one:
+
+    hood    speaker grille, the mark, the date
+    screen  an inset well with a pink tube glow — the stage content
+    deck    the controls, a row of buttons, and the spec plate
+
+What changes between home, camera and result is the screen, not the machine. Two
+props trim it where height is short: `credits={false}` drops the spec plate,
+`lean` also drops the grille and the button row (the result screen shows a 9:16
+picture and needs every pixel).
+
+On the camera screen the square the camera actually captures sits in the middle
+of the screen with the HUD above it and the filters below, letterboxed against
+the well. Don't be tempted to make the video fill the well — the preview would
+then show more than the square that gets captured, and it would be lying.
 
 ## Design language
 
@@ -136,7 +155,14 @@ labels. Two classes in `globals.css` carry this:
 - `.t-display` — 800 weight, lowercase, `-0.045em` tracking, `0.85` line-height
 - `.t-label` — 600 weight, UPPERCASE, `+0.16em` tracking, 11px
 
-Prefer these over ad-hoc font sizing. No cards, no gradients, no shadows.
+Prefer these over ad-hoc font sizing.
+
+The booth reads as hardware, so depth is allowed — but only as steps in value,
+one inset ring and the screen's pink glow. Not drop shadows on everything, and
+no gradient surfaces: the grille, the dot field and the deck buttons are all
+flat. The one gradient in the app is the screen's scanlines, and they are kept
+faint on purpose — over the camera preview they have to be felt rather than
+seen, or the preview stops telling the truth.
 
 ### The app column
 

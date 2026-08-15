@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Cabinet from "@/components/Cabinet";
 import CountdownRing from "@/components/CountdownRing";
 import FilterLayers from "@/components/FilterLayers";
 import FilterRail from "@/components/FilterRail";
@@ -266,19 +267,49 @@ export default function CameraScreen({
       ? phase.shot
       : photos.length;
 
-  const statusLine = running
-    ? `Photo ${Math.min(activeShot + 1, TOTAL_SHOTS)} of ${TOTAL_SHOTS}`
-    : "Ready when you are";
-
   /* ---------------- Render ---------------- */
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden">
-      {/* ---------- Header ---------- */}
-      <header className="pt-safe shrink-0">
-        {/* px-3 lines the icons up with the gutter: 12px here plus the
-            12px inside each 44px hit area lands on the same edge. */}
-        <div className="flex items-center justify-between px-3 py-2">
+    <Cabinet
+      credits={false}
+      deck={
+        <>
+          {notice && (
+            <p className="t-body animate-toast mb-3 text-center text-[0.85rem] text-paper/55">
+              {notice}
+            </p>
+          )}
+
+          {running ? (
+            <button
+              type="button"
+              onClick={resetSession}
+              className="t-display flex w-full items-center justify-center rounded-2xl border border-hairline text-[1.5rem] text-paper/80 transition-transform active:scale-[0.985]"
+              style={{ minHeight: 60 }}
+            >
+              stop
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={start}
+              disabled={status !== "ready"}
+              className="t-display relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-pink text-[1.75rem] text-ink transition-transform active:scale-[0.985] disabled:opacity-30"
+              style={{ minHeight: 60 }}
+            >
+              {status === "ready" && <span className="sheen" aria-hidden="true" />}
+              <span className="relative">start</span>
+            </button>
+          )}
+        </>
+      }
+    >
+      {/* Everything happens on the booth's screen: a HUD across the
+          top, the square the camera actually captures in the middle,
+          and the filters along the bottom. */}
+      <div className="flex h-full flex-col">
+        {/* ---------- HUD ---------- */}
+        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3 pb-2">
           <button
             type="button"
             onClick={() => {
@@ -286,254 +317,209 @@ export default function CameraScreen({
               onExit();
             }}
             aria-label="Leave the photobooth"
-            className="grid size-11 place-items-center rounded-full text-paper/70 transition-colors active:text-paper"
+            className="grid size-9 place-items-center rounded-full text-paper/60 transition-colors active:text-paper"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M6 6l12 12M18 6L6 18"
                 stroke="currentColor"
-                strokeWidth="2.2"
+                strokeWidth="2.4"
                 strokeLinecap="round"
               />
             </svg>
           </button>
 
+          <StripProgress photos={photos} activeIndex={activeShot} />
+
           <p
-            className="t-label flex items-center gap-2 text-paper/55"
+            className="t-label flex w-9 shrink-0 justify-end text-[9px] text-paper/45"
             aria-live="polite"
           >
-            {running && (
-              <span
-                aria-hidden="true"
-                className="animate-blink block size-[6px] rounded-full bg-pink"
-              />
-            )}
-            {statusLine}
+            {running ? `${Math.min(activeShot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}` : ""}
           </p>
-
-          {/* Balances the close button so the status line stays centred.
-              Flipping lives on the preview now. */}
-          <span className="size-11" aria-hidden="true" />
         </div>
-      </header>
 
-      {/* ---------- Strip building up ---------- */}
-      <div className="shrink-0 pt-1 pb-4">
-        <StripProgress photos={photos} activeIndex={activeShot} />
-      </div>
+        {/* ---------- Live preview ---------- */}
+        <main className="grid min-h-0 flex-1 place-items-center px-3">
+          <div className="preview-box relative isolate overflow-hidden rounded-xl bg-black">
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              className="size-full object-cover"
+              style={{
+                filter: filter.css || undefined,
+                transform: mirrored ? "scaleX(-1)" : undefined,
+              }}
+            />
 
-      {/* ---------- Live preview ---------- */}
-      <main className="gutter grid min-h-0 flex-1 place-items-center">
-        <div className="preview-box relative isolate overflow-hidden rounded-2xl bg-ink-deep">
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            autoPlay
-            className="size-full object-cover"
-            style={{
-              filter: filter.css || undefined,
-              transform: mirrored ? "scaleX(-1)" : undefined,
-            }}
-          />
+            {/* Colour and grain, exactly as capture will bake them in. */}
+            <FilterLayers filter={filter} />
 
-          {/* Colour and grain, exactly as capture will bake them in. */}
-          <FilterLayers filter={filter} />
-
-          {/* Viewfinder */}
-          <span
-            aria-hidden="true"
-            className={`pointer-events-none absolute inset-3 ${
-              phase.kind === "counting" ? "animate-brackets" : "opacity-30"
-            }`}
-          >
-            {BRACKETS.map((corner) => (
-              <span
-                key={corner}
-                className={`absolute size-7 border-pink ${corner}`}
-              />
-            ))}
-          </span>
-
-          {/* Countdown */}
-          {phase.kind === "counting" && (
-            <>
-              <span
-                aria-hidden="true"
-                className="animate-fade pointer-events-none absolute inset-0 bg-ink/35"
-              />
-              <CountdownRing
-                n={phase.n}
-                seconds={COUNT_FROM}
-                shot={phase.shot}
-              />
-            </>
-          )}
-
-          {/* Breath between photos */}
-          {phase.kind === "between" && (
-            <span className="pointer-events-none absolute inset-0 grid place-items-center">
-              <span className="t-label animate-toast rounded-full bg-ink/80 px-5 py-2.5 text-paper">
-                Next up
-              </span>
-            </span>
-          )}
-
-          {/* Shutter */}
-          {flash && (
+            {/* Viewfinder */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-white"
-              style={{ animation: "flash-pop 380ms ease-out forwards" }}
-            />
-          )}
-
-          {/* Flip — on the preview, thumb-high, and live for the whole
-              shoot. Turning round between photos is the point of a
-              photobooth, so nothing about it is locked. */}
-          {canFlip && (
-            <button
-              type="button"
-              onClick={() => void flip()}
-              aria-label="Switch camera"
-              className="group animate-fade absolute right-3 bottom-3 grid size-14 place-items-center rounded-full bg-ink/75 text-pink ring-1 ring-paper/25 transition-transform duration-300 active:scale-90 active:ring-pink"
+              className={`pointer-events-none absolute inset-2.5 ${
+                phase.kind === "counting" ? "animate-brackets" : "opacity-30"
+              }`}
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-                className="transition-transform duration-500 ease-[var(--ease-out-soft)] group-active:rotate-180"
-              >
-                <path
-                  d="M4 8a8 8 0 0 1 13.5-5.5M20 16A8 8 0 0 1 6.5 21.5"
-                  stroke="currentColor"
-                  strokeWidth="2.1"
-                  strokeLinecap="round"
+              {BRACKETS.map((corner) => (
+                <span
+                  key={corner}
+                  className={`absolute size-6 border-pink ${corner}`}
                 />
-                <path
-                  d="M4 3v5h5M20 21v-5h-5"
-                  stroke="currentColor"
-                  strokeWidth="2.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              ))}
+            </span>
+
+            {/* Countdown */}
+            {phase.kind === "counting" && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="animate-fade pointer-events-none absolute inset-0 bg-ink/35"
                 />
-              </svg>
-            </button>
-          )}
+                <CountdownRing
+                  n={phase.n}
+                  seconds={COUNT_FROM}
+                  shot={phase.shot}
+                />
+              </>
+            )}
 
-          {/* ---------- Overlays: permission, loading, failure ---------- */}
-          {gate === "ask" && status === "idle" && (
-            <div className="animate-fade absolute inset-0 grid place-items-center bg-ink p-6 text-center">
-              <div>
-                <p className="t-label text-pink">Camera</p>
-                <h2 className="t-display mt-3 text-[2.6rem] text-paper">
-                  step into
-                  <br />
-                  the booth
-                </h2>
-                <p className="t-body mx-auto mt-4 max-w-[26ch] text-paper/60">
-                  We need your camera to take the three photos. They stay on
-                  your phone — nothing is uploaded.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGate("open");
-                    void open();
-                  }}
-                  className="t-display relative mt-7 overflow-hidden rounded-2xl bg-pink px-8 py-4 text-[1.5rem] text-ink transition-transform active:scale-[0.98]"
-                >
-                  <span className="sheen" aria-hidden="true" />
-                  <span className="relative">turn on camera</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {status === "starting" && (
-            <div className="animate-fade absolute inset-0 grid place-items-center bg-ink">
-              <div className="w-40 text-center">
-                <p className="t-label text-paper/50">Opening camera</p>
-                <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
-                  <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
+            {/* Breath between photos */}
+            {phase.kind === "between" && (
+              <span className="pointer-events-none absolute inset-0 grid place-items-center">
+                <span className="t-label animate-toast rounded-full bg-ink/80 px-5 py-2.5 text-paper">
+                  Next up
                 </span>
-              </div>
-            </div>
-          )}
+              </span>
+            )}
 
-          {status === "error" && problem && (
-            <div className="animate-fade absolute inset-0 grid place-items-center bg-ink p-6 text-center">
-              <div>
-                <h2 className="t-display text-[2.4rem] text-pink">
-                  {CAMERA_MESSAGES[problem].title}
-                </h2>
-                <p className="t-body mx-auto mt-4 max-w-[30ch] text-paper/60">
-                  {CAMERA_MESSAGES[problem].body}
-                </p>
-                <div className="mt-7 flex items-center justify-center gap-3">
+            {/* Shutter */}
+            {flash && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-white"
+                style={{ animation: "flash-pop 380ms ease-out forwards" }}
+              />
+            )}
+
+            {/* Flip — thumb-high and live for the whole shoot. Turning
+                round between photos is the point of a photobooth. */}
+            {canFlip && (
+              <button
+                type="button"
+                onClick={() => void flip()}
+                aria-label="Switch camera"
+                className="group animate-fade absolute right-2.5 bottom-2.5 grid size-12 place-items-center rounded-full bg-ink/75 text-pink ring-1 ring-paper/25 transition-transform duration-300 active:scale-90 active:ring-pink"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  className="transition-transform duration-500 ease-[var(--ease-out-soft)] group-active:rotate-180"
+                >
+                  <path
+                    d="M4 8a8 8 0 0 1 13.5-5.5M20 16A8 8 0 0 1 6.5 21.5"
+                    stroke="currentColor"
+                    strokeWidth="2.1"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M4 3v5h5M20 21v-5h-5"
+                    stroke="currentColor"
+                    strokeWidth="2.1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+
+            {/* ---------- Overlays: permission, loading, failure ---------- */}
+            {gate === "ask" && status === "idle" && (
+              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep p-5 text-center">
+                <div>
+                  <p className="t-label text-pink">Camera</p>
+                  <h2 className="t-display mt-3 text-[2.2rem] text-paper">
+                    step into
+                    <br />
+                    the booth
+                  </h2>
+                  <p className="t-body mx-auto mt-3 max-w-[26ch] text-[0.95rem] text-paper/60">
+                    We need your camera to take the three photos. They stay on
+                    your phone — nothing is uploaded.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => void open()}
-                    className="t-display rounded-2xl bg-pink px-7 py-3.5 text-[1.3rem] text-ink"
+                    onClick={() => {
+                      setGate("open");
+                      void open();
+                    }}
+                    className="t-display relative mt-6 overflow-hidden rounded-2xl bg-pink px-7 py-3.5 text-[1.35rem] text-ink transition-transform active:scale-[0.98]"
                   >
-                    try again
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onExit}
-                    className="t-label rounded-2xl border border-hairline px-6 py-4 text-paper/70"
-                  >
-                    Go back
+                    <span className="sheen" aria-hidden="true" />
+                    <span className="relative">turn on camera</span>
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {status === "starting" && (
+              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep">
+                <div className="w-40 text-center">
+                  <p className="t-label text-paper/50">Opening camera</p>
+                  <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
+                    <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {status === "error" && problem && (
+              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep p-5 text-center">
+                <div>
+                  <h2 className="t-display text-[2rem] text-pink">
+                    {CAMERA_MESSAGES[problem].title}
+                  </h2>
+                  <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.9rem] text-paper/60">
+                    {CAMERA_MESSAGES[problem].body}
+                  </p>
+                  <div className="mt-6 flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void open()}
+                      className="t-display rounded-2xl bg-pink px-6 py-3 text-[1.2rem] text-ink"
+                    >
+                      try again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onExit}
+                      className="t-label rounded-2xl border border-hairline px-5 py-3.5 text-paper/70"
+                    >
+                      Go back
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* ---------- Filters ---------- */}
+        <div className="shrink-0 pt-2 pb-1">
+          <FilterRail
+            activeId={filterId}
+            onSelect={setFilterId}
+            disabled={running || status !== "ready"}
+            preview={sample}
+          />
         </div>
-      </main>
-
-      {/* ---------- Filters ---------- */}
-      <div className="shrink-0 pt-4">
-        <FilterRail
-          activeId={filterId}
-          onSelect={setFilterId}
-          disabled={running || status !== "ready"}
-          preview={sample}
-        />
       </div>
-
-      {/* ---------- Action ---------- */}
-      <footer className="pb-safe gutter shrink-0 pt-3 pb-4">
-        {notice && (
-          <p className="t-body animate-toast mb-3 text-center text-[0.9rem] text-paper/55">
-            {notice}
-          </p>
-        )}
-
-        {running ? (
-          <button
-            type="button"
-            onClick={resetSession}
-            className="t-display flex w-full items-center justify-center rounded-2xl border border-hairline text-[1.6rem] text-paper/80 transition-transform active:scale-[0.985]"
-            style={{ minHeight: 62 }}
-          >
-            stop
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={start}
-            disabled={status !== "ready"}
-            className="t-display relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-pink text-[1.9rem] text-ink transition-transform active:scale-[0.985] disabled:opacity-30"
-            style={{ minHeight: 62 }}
-          >
-            {status === "ready" && <span className="sheen" aria-hidden="true" />}
-            <span className="relative">start</span>
-          </button>
-        )}
-      </footer>
-    </div>
+    </Cabinet>
   );
 }

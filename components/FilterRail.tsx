@@ -44,7 +44,7 @@ export default function FilterRail({
       ref={railRef}
       role="radiogroup"
       aria-label="Photo filter"
-      className={`no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-[var(--gutter)] pt-2 pb-1 transition-opacity duration-300 ${
+      className={`no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-2 pb-2 transition-opacity duration-300 ${
         disabled ? "pointer-events-none opacity-40" : ""
       }`}
     >

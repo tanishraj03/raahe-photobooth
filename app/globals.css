@@ -182,6 +182,70 @@ button {
 }
 
 /* ============================================================
+   THE CABINET
+   The booth is a piece of hardware: a perforated speaker grille
+   across the hood, an inset screen with a pink tube glow, and a
+   deck of controls underneath. Depth comes from steps in value and
+   from one inset ring — not from drop shadows on everything.
+   ============================================================ */
+
+/* Perforated grille. Flat dots, no gradient surface. */
+.grille {
+  height: 12px;
+  background-image: radial-gradient(
+    circle,
+    var(--color-hairline) 1.5px,
+    transparent 1.6px
+  );
+  background-size: 7px 7px;
+  background-position: center;
+}
+
+/*
+ * The screen. Everything on every stage happens inside one of
+ * these, so the booth stays the same object while its screen
+ * changes.
+ */
+.screen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--color-ink-deep);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 78, 152, 0.32),
+    inset 0 0 44px rgba(240, 78, 152, 0.08),
+    0 0 56px rgba(240, 78, 152, 0.1);
+}
+
+/* Scanlines. Kept faint — over the camera preview they have to be
+   felt rather than seen, or the preview stops telling the truth. */
+.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.35;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.18) 0px,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* The row of arcade buttons on the deck. Decorative. */
+.deck-button {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+/* ============================================================
    BACKDROP
    A dot field, a drifting light bar and a film grain, sitting
    behind everything. Flat colours only — no gradient surfaces.
@@ -643,9 +707,9 @@ button {
    ------------------------------------------------------------ */
 .preview-box {
   aspect-ratio: 1;
-  /* 23rem is the header, the reel, the filter rail and the buttons.
-     Whichever runs out first — the width of the column or what's
-     left of the height — decides how big the preview gets. */
-  width: min(100%, calc(100dvh - 23rem));
+  /* 25rem is the hood, the HUD, the filter rail and the deck.
+     Whichever runs out first — the width of the screen or what's
+     left of its height — decides how big the preview gets. */
+  width: min(100%, calc(100svh - 25rem));
   margin-inline: auto;
 }

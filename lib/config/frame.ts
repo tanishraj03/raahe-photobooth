@@ -6,29 +6,30 @@
  * whole layout out from these values, nothing is hard-coded.
  *
  * THE SHAPE
- * The export is **9:16, 1080 × 1920** — a full Instagram story, edge
- * to edge, no letterboxing.
+ * The export is **9:16, 1080 × 1920** — a full Instagram story.
  *
- * A three-photo strip is about 1:3, so it can't fill a story frame
- * on its own. The strip runs down the left as a film card and the
- * event sits in the column beside it, under the mic. Rails top and
- * bottom hold the whole thing together.
+ * On it sits one thing: an actual photobooth strip. Three photos in
+ * a column, generous borders, and the event set out underneath them
+ * — mark, name, venue, date, centred, the way a real booth prints
+ * it. The borders carry small music-and-art motifs, and the empty
+ * margins either side run a repeating ticker.
  *
- *      ┌────────────────────────────┐
- *      │ [logo]           22.08.2026│  header rail
- *      │ ───────────────────────────│
- *      │ ┌──────────┐               │
- *      │ │  photo   │      ▟▙       │
- *      │ ├──────────┤     mic       │  ← halftone, behind the type
- *      │ │  photo   │      ▐▌       │
- *      │ ├──────────┤               │
- *      │ │  photo   │   raahe       │
- *      │ │          │   open mic    │
- *      │ └──────────┘   ─────────   │
- *      │                VENUE       │
- *      │ ───────────────────────────│
- *      │ RAAHE OPEN MIC · VENUE · … │  footer ticker
- *      └────────────────────────────┘
+ *      ┌───────────────────────────┐
+ *      │ ·  ┌───────────────────┐  ·│
+ *      │ R  │     RAAHE.CO      │  R│
+ *      │ A  │ ♪ ┌─────────────┐ ★ │ A│
+ *      │ A  │   │    photo    │   │ A│
+ *      │ H  │ ◎ ├─────────────┤ ▮ │ H│
+ *      │ E  │   │    photo    │   │ E│
+ *      │ ·  │ ⌇ ├─────────────┤ ♪ │ ·│
+ *      │    │   │    photo    │   │  │
+ *      │    │   └─────────────┘   │  │
+ *      │    │       [logo]        │  │
+ *      │    │   raahe open mic    │  │
+ *      │    │ STARBUCKS VITTAL…   │  │
+ *      │    │     22.08.2026      │  │
+ *      │    └───────────────────┘  │
+ *      └───────────────────────────┘
  *
  * All sizes are pixels at export resolution.
  */
@@ -62,123 +63,109 @@ export const FRAME = {
     /** 9:16 — a full-bleed Instagram story. */
     width: 1080,
     height: 1920,
-    /** Space between the poster edge and everything in it. */
-    margin: 60,
-    /** Space between the strip card and the event column. */
-    columnGap: 46,
-    /**
-     * How much of the width the strip card may take. Raise it for
-     * bigger photos, lower it for a wider event column.
-     */
-    stripWidthShare: 0.48,
+    /** Space between the poster edge and the strip. */
+    margin: 56,
     /** Faint dot field over the background. Set size to 0 to remove. */
     dotSize: 2.5,
     dotSpacing: 46,
     /** Little printer's crop marks in the corners. */
     cropMarks: true,
-    cropMarkLength: 28,
-    cropMarkInset: 24,
+    cropMarkLength: 26,
+    cropMarkInset: 22,
     cropMarkWidth: 2,
   },
 
-  /* ---------------- Top and bottom rails ---------------- */
+  /* ---------------- The margins either side ---------------- */
 
-  rails: {
-    /** Height of the logo, top left. Its width follows its own shape. */
-    logoHeight: 56,
-    /** Date, top right. */
-    dateSize: 30,
-    dateTracking: 0.02,
-    /** Space under the header before its rule. */
-    gapUnder: 30,
-    ruleHeight: 2,
-    /** Space between a rule and the body of the poster. */
-    bodyGap: 44,
-    /** The line of tracked capitals along the foot. */
-    tickerSize: 18,
-    tickerTracking: 0.16,
-    tickerGap: 30,
+  margins: {
+    /** A repeating line of tracked capitals running up each side. */
+    ticker: true,
+    size: 17,
+    tracking: 0.22,
+    /** Space between one repeat and the next. */
+    gap: 44,
   },
 
-  /* ---------------- The strip card ---------------- */
+  /* ---------------- The strip ---------------- */
 
   strip: {
-    /** Space inside the card. Also the lane the sprockets run down. */
-    pad: 32,
-    /** Space between photos. */
-    photoGap: 16,
-    /** Corner rounding on each photo. */
-    photoRadius: 10,
-    /** Corner rounding on the card. */
-    radius: 24,
-    /** Hairline around the card. Set to 0 to remove it. */
-    borderWidth: 2,
-    /** Film perforations down both edges. Set enabled to false to drop. */
-    sprocket: {
-      enabled: true,
-      width: 10,
-      height: 20,
-      gap: 26,
-      radius: 4,
-    },
+    /** The side borders — where the motifs live. */
+    borderX: 56,
+    /** The top border, which carries the small cap line. */
+    borderTop: 58,
+    /** Below the date. */
+    borderBottom: 46,
+    /** Space between photos. A real strip leaves a clear border. */
+    photoGap: 26,
+    /** Corner rounding on each photo. Real booths print them square. */
+    photoRadius: 4,
+    /** Corner rounding on the strip itself. */
+    radius: 20,
+    /** The pink keyline around the strip. Set to 0 to remove it. */
+    keyline: 3,
+    /** A hairline drawn tight around the block of photos. */
+    innerKeyline: 1,
+    /** Space between the last photo and the event block. */
+    footerGap: 46,
+    /** The small tracked line along the top border. */
+    capSize: 17,
+    capTracking: 0.22,
   },
 
-  /* ---------------- The mic ---------------- */
+  /* ---------------- Border motifs ---------------- */
 
-  mic: {
-    /** Set false for a poster with no illustration. */
+  motifs: {
+    /** Set false for plain borders. */
     enabled: true,
-    /** Fraction of the event column the mic spans. */
-    widthShare: 1,
-    /** Space between the foot of the mic and the event name. */
-    gapBelow: 54,
-    /** Opacity of the whole illustration. Keep it quiet. */
-    alpha: 0.62,
-    /** Halftone dot diameter and spacing, in poster pixels. */
-    dot: 7.5,
-    spacing: 13,
-    /** How much the dots shrink towards the foot of the mic. */
-    fade: 0.55,
+    size: 30,
+    /** Distance between one motif and the next, down a border. */
+    step: 152,
+    alpha: 0.6,
+    /** The cycle, top to bottom. Names come from lib/motifs.ts. */
+    order: ["spark", "note", "disc", "mic", "bars", "squiggle"],
+    /** How far the right-hand column is shifted through the cycle. */
+    offset: 3,
   },
 
-  /* ---------------- The event column ---------------- */
+  /* ---------------- The event, under the photos ---------------- */
 
-  brand: {
-    /**
-     * Event name. Starts here and shrinks until the longest word
-     * fits the column, so the type is always set to the measure.
-     */
-    nameSize: 190,
-    nameTracking: -0.045,
-    nameLineHeight: 0.86,
+  footer: {
+    /** The mark. Its width follows its own proportions. */
+    logoHeight: 70,
+    logoGap: 26,
 
-    /** The pink rule under the name. */
-    ruleGapTop: 34,
-    ruleHeight: 3,
-    ruleGapBottom: 30,
+    /** Event name, fitted to one line across the strip. */
+    nameSize: 80,
+    nameTracking: -0.04,
+    nameLineHeight: 0.9,
+    nameGap: 22,
 
-    /** Venue. Wraps by word. Its last line sits on the card's foot. */
-    venueSize: 22,
+    /** Venue. Wraps if it has to. */
+    venueSize: 20,
     venueTracking: 0.16,
-    venueLineGap: 13,
+    venueLineGap: 10,
+    venueGap: 18,
+
+    /** Date. */
+    dateSize: 27,
+    dateTracking: 0.04,
   },
 
   /* ---------------- Colours ---------------- */
 
   colors: {
-    background: "#212121",
-    dot: "rgba(240, 78, 152, 0.11)",
-    card: "#171717",
-    cardBorder: "rgba(244, 245, 245, 0.10)",
+    background: "#1A1A1A",
+    dot: "rgba(240, 78, 152, 0.10)",
+    marginTicker: "rgba(244, 245, 245, 0.09)",
+    strip: "#242424",
+    keyline: "#F04E98",
+    innerKeyline: "rgba(244, 245, 245, 0.12)",
     photoWell: "#111111",
-    sprocket: "rgba(240, 78, 152, 0.5)",
+    cap: "rgba(244, 245, 245, 0.4)",
+    motif: "#F04E98",
     cropMark: "rgba(240, 78, 152, 0.4)",
-    railRule: "rgba(244, 245, 245, 0.14)",
-    mic: "#F04E98",
     title: "#F4F5F5",
-    rule: "#F04E98",
-    venue: "rgba(244, 245, 245, 0.5)",
-    ticker: "rgba(244, 245, 245, 0.38)",
+    venue: "rgba(244, 245, 245, 0.55)",
     date: "#F04E98",
   },
 } as const;
