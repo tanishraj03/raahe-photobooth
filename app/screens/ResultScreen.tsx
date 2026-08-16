@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Cabinet from "@/components/Cabinet";
+import Control from "@/components/Control";
 import { composeStrip, type Strip } from "@/lib/compose";
 import {
   canShareFiles,
@@ -103,8 +104,8 @@ export default function ResultScreen({
 
   if (!strip && !failed) {
     return (
-      <Cabinet credits={false}>
-        <div className="flex h-full flex-col items-center justify-center gap-9 px-6">
+      <Cabinet lean status="Developing">
+        <div className="flex h-full flex-col items-center justify-center gap-8 px-6">
           <div className="flex gap-2.5">
             {photos.map((photo, i) => (
               // eslint-disable-next-line @next/next/no-img-element
@@ -112,17 +113,17 @@ export default function ResultScreen({
                 key={i}
                 src={photo}
                 alt=""
-                className="animate-develop w-16 rounded-md border border-hairline"
+                className="animate-develop w-16 rounded-sm ring-1 ring-paper/15"
                 style={{ animationDelay: `${i * 0.16}s` }}
               />
             ))}
           </div>
 
           <div className="w-44">
-            <p className="t-label text-center text-pink">
+            <p className="t-label text-center text-[9px] text-pink">
               Developing your strip
             </p>
-            <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
+            <span className="relative mt-3 block h-px w-full overflow-hidden bg-paper/15">
               <span className="animate-track absolute inset-y-0 left-0 w-1/3 bg-pink" />
             </span>
           </div>
@@ -136,35 +137,26 @@ export default function ResultScreen({
   if (failed) {
     return (
       <Cabinet
-        credits={false}
+        lean
+        status="Fault"
         deck={
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onRetake}
-              className="t-display flex flex-1 items-center justify-center rounded-2xl bg-pink text-[1.3rem] text-ink"
-              style={{ minHeight: 56 }}
-            >
-              try again
-            </button>
-            <button
-              type="button"
-              onClick={onExit}
-              className="t-label flex flex-1 items-center justify-center rounded-2xl border border-hairline text-paper/70"
-              style={{ minHeight: 56 }}
-            >
-              Go home
-            </button>
+          <div className="flex gap-2.5">
+            <Control lit onClick={onRetake} height={56} className="flex-1">
+              Retry
+            </Control>
+            <Control onClick={onExit} height={56} className="flex-1">
+              Home
+            </Control>
           </div>
         }
       >
-        <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
-          <h1 className="t-display animate-rise text-[2.2rem] text-pink">
+        <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+          <h1 className="t-display animate-rise text-[2rem] text-pink">
             the strip
             <br />
             didn&rsquo;t print
           </h1>
-          <p className="t-body animate-rise delay-1 max-w-[28ch] text-[0.95rem] text-paper/60">
+          <p className="t-body animate-rise delay-1 max-w-[28ch] text-[0.9rem] text-paper/60">
             We couldn&rsquo;t put the photos together on this device. Running
             the three shots again usually fixes it.
           </p>
@@ -178,12 +170,12 @@ export default function ResultScreen({
   return (
     <>
       <Cabinet
-        credits={false}
         lean
+        status="Photo developed"
         deck={
           <>
             <p
-              className="t-label mb-2.5 flex h-4 items-center justify-center text-paper/45"
+              className="t-label mb-2.5 flex h-3.5 items-center justify-center text-[8.5px] text-paper/40"
               aria-live="polite"
             >
               {toast ? (
@@ -195,77 +187,67 @@ export default function ResultScreen({
               )}
             </p>
 
-            <button
-              type="button"
+            <Control
+              lit
               onClick={save}
-              className="t-display relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-pink text-[1.65rem] text-ink transition-transform active:scale-[0.985]"
-              style={{ minHeight: 58 }}
+              height={56}
+              note={saved ? undefined : "9:16 story"}
+              icon={
+                saved ? (
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="animate-land"
+                  >
+                    <path
+                      d="m5 12.5 4.5 4.5L19 7"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : undefined
+              }
             >
-              <span className="sheen" aria-hidden="true" />
-              {saved && (
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  className="animate-land relative"
-                >
-                  <path
-                    d="m5 12.5 4.5 4.5L19 7"
-                    stroke="currentColor"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-              <span className="relative">{saved ? "saved" : "save photo"}</span>
-            </button>
+              {saved ? "Saved" : "Download"}
+            </Control>
 
-            <div className="mt-2.5 flex gap-3">
+            <div className="mt-2.5 flex gap-2.5">
               {shareable && (
-                <button
-                  type="button"
+                <Control
                   onClick={() => void share()}
-                  className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.25rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
-                  style={{ minHeight: 50 }}
+                  height={46}
+                  className="flex-1"
                 >
-                  share
-                </button>
+                  Share
+                </Control>
               )}
-              <button
-                type="button"
-                onClick={onRetake}
-                className="t-display flex flex-1 items-center justify-center rounded-2xl border border-hairline text-[1.25rem] text-paper/85 transition-colors duration-200 hover:border-pink/60 active:scale-[0.985]"
-                style={{ minHeight: 50 }}
-              >
-                retake
-              </button>
+              <Control onClick={onRetake} height={46} className="flex-1">
+                Retake
+              </Control>
             </div>
           </>
         }
       >
+        {/* No heading in here: the strip is 9:16 and every row of
+            type is width it loses. The name plate says "Photo
+            developed" instead. */}
         <div className="flex h-full flex-col">
-          <p className="t-label animate-rise flex shrink-0 items-center gap-2.5 px-4 pt-3 text-pink">
-            <span
-              aria-hidden="true"
-              className="animate-blink block size-[7px] rounded-full bg-pink"
-            />
-            Photo strip ready
-          </p>
-
           <button
             type="button"
             onClick={() => setZoomed(true)}
             aria-label="View the photo strip larger"
-            className="flex min-h-0 flex-1 items-center justify-center px-4 py-3"
+            className="flex min-h-0 flex-1 items-center justify-center px-4 py-2.5"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={strip!.url}
               alt="Your Raahe Open Mic photo strip"
-              className="animate-print max-h-full max-w-full rounded-md"
+              className="animate-print max-h-full max-w-full rounded-sm ring-1 ring-paper/15"
             />
           </button>
         </div>
@@ -273,7 +255,7 @@ export default function ResultScreen({
 
       {/* ---------------- Full size ---------------- */}
       {zoomed && (
-        <div className="animate-fade fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-ink">
+        <div className="animate-fade fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/97">
           <button
             type="button"
             onClick={() => setZoomed(false)}

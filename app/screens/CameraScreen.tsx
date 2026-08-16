@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cabinet from "@/components/Cabinet";
-import CountdownRing from "@/components/CountdownRing";
+import Control from "@/components/Control";
+import Countdown from "@/components/Countdown";
 import FilterLayers from "@/components/FilterLayers";
 import FilterRail from "@/components/FilterRail";
 import StripProgress from "@/components/StripProgress";
@@ -13,7 +14,7 @@ import { DEFAULT_FILTER_ID, getFilter } from "@/lib/filters";
 const TOTAL_SHOTS = 3;
 const COUNT_FROM = 5;
 
-/** Size of the still used to draw the filter chips. */
+/** Size of the still used to draw the filter keys. */
 const SAMPLE_SIZE = 96;
 /** How often that still is refreshed while you're choosing. */
 const SAMPLE_EVERY_MS = 2600;
@@ -107,10 +108,10 @@ export default function CameraScreen({
     };
   }, [open]);
 
-  /* ---------------- Live filter chips ---------------- */
+  /* ---------------- Live filter keys ---------------- */
 
   // A small square lifted off the camera every couple of seconds, so
-  // every chip in the rail shows your own face wearing that filter.
+  // every key in the bank shows your own face wearing that filter.
   useEffect(() => {
     if (status !== "ready" || running) return;
 
@@ -267,49 +268,50 @@ export default function CameraScreen({
       ? phase.shot
       : photos.length;
 
+  const machineStatus = running
+    ? `Shot ${Math.min(activeShot + 1, TOTAL_SHOTS)} of ${TOTAL_SHOTS}`
+    : status === "ready"
+      ? "Standing by"
+      : "Warming up";
+
   /* ---------------- Render ---------------- */
 
   return (
     <Cabinet
-      credits={false}
+      lean
+      flash={flash}
+      status={machineStatus}
       deck={
         <>
           {notice && (
-            <p className="t-body animate-toast mb-3 text-center text-[0.85rem] text-paper/55">
+            <p className="t-body animate-toast mb-2.5 text-center text-[0.8rem] text-paper/55">
               {notice}
             </p>
           )}
 
           {running ? (
-            <button
-              type="button"
-              onClick={resetSession}
-              className="t-display flex w-full items-center justify-center rounded-2xl border border-hairline text-[1.5rem] text-paper/80 transition-transform active:scale-[0.985]"
-              style={{ minHeight: 60 }}
-            >
-              stop
-            </button>
+            <Control onClick={resetSession} note="Cancel the run" height={58}>
+              Stop
+            </Control>
           ) : (
-            <button
-              type="button"
+            <Control
+              lit
               onClick={start}
               disabled={status !== "ready"}
-              className="t-display relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-pink text-[1.75rem] text-ink transition-transform active:scale-[0.985] disabled:opacity-30"
-              style={{ minHeight: 60 }}
+              note={`3 shots · ${COUNT_FROM}s`}
+              height={58}
             >
-              {status === "ready" && <span className="sheen" aria-hidden="true" />}
-              <span className="relative">start</span>
-            </button>
+              Start
+            </Control>
           )}
         </>
       }
     >
-      {/* Everything happens on the booth's screen: a HUD across the
-          top, the square the camera actually captures in the middle,
-          and the filters along the bottom. */}
+      {/* The tube: a HUD across the top, the square the camera
+          actually captures in the middle, the filter bank below. */}
       <div className="flex h-full flex-col">
         {/* ---------- HUD ---------- */}
-        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3 pb-2">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-2.5 pb-1.5">
           <button
             type="button"
             onClick={() => {
@@ -317,13 +319,13 @@ export default function CameraScreen({
               onExit();
             }}
             aria-label="Leave the photobooth"
-            className="grid size-9 place-items-center rounded-full text-paper/60 transition-colors active:text-paper"
+            className="grid size-8 place-items-center rounded-full text-paper/50 transition-colors active:text-paper"
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M6 6l12 12M18 6L6 18"
                 stroke="currentColor"
-                strokeWidth="2.4"
+                strokeWidth="2.6"
                 strokeLinecap="round"
               />
             </svg>
@@ -331,17 +333,18 @@ export default function CameraScreen({
 
           <StripProgress photos={photos} activeIndex={activeShot} />
 
-          <p
-            className="t-label flex w-9 shrink-0 justify-end text-[9px] text-paper/45"
-            aria-live="polite"
+          <span
+            className="t-label w-8 shrink-0 text-right text-[8px] text-paper/40"
+            aria-hidden="true"
           >
-            {running ? `${Math.min(activeShot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}` : ""}
-          </p>
+            {String(Math.min(activeShot + 1, TOTAL_SHOTS)).padStart(2, "0")}/
+            {String(TOTAL_SHOTS).padStart(2, "0")}
+          </span>
         </div>
 
         {/* ---------- Live preview ---------- */}
         <main className="grid min-h-0 flex-1 place-items-center px-3">
-          <div className="preview-box relative isolate overflow-hidden rounded-xl bg-black">
+          <div className="preview-box relative isolate overflow-hidden rounded-lg bg-black">
             <video
               ref={videoRef}
               playsInline
@@ -360,7 +363,7 @@ export default function CameraScreen({
             {/* Viewfinder */}
             <span
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-2.5 ${
+              className={`pointer-events-none absolute inset-2 ${
                 phase.kind === "counting" ? "animate-brackets" : "opacity-30"
               }`}
             >
@@ -377,20 +380,25 @@ export default function CameraScreen({
               <>
                 <span
                   aria-hidden="true"
-                  className="animate-fade pointer-events-none absolute inset-0 bg-ink/35"
+                  className="animate-fade pointer-events-none absolute inset-0 bg-ink/45"
                 />
-                <CountdownRing
-                  n={phase.n}
-                  seconds={COUNT_FROM}
-                  shot={phase.shot}
-                />
+                <Countdown n={phase.n} seconds={COUNT_FROM} shot={phase.shot} />
               </>
+            )}
+
+            {/* The moment itself */}
+            {phase.kind === "capture" && (
+              <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+                <span className="t-machine animate-slam text-[2.4rem] text-paper">
+                  Flash
+                </span>
+              </span>
             )}
 
             {/* Breath between photos */}
             {phase.kind === "between" && (
-              <span className="pointer-events-none absolute inset-0 grid place-items-center">
-                <span className="t-label animate-toast rounded-full bg-ink/80 px-5 py-2.5 text-paper">
+              <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+                <span className="t-label animate-toast rounded-full bg-ink/85 px-5 py-2.5 text-paper">
                   Next up
                 </span>
               </span>
@@ -400,7 +408,7 @@ export default function CameraScreen({
             {flash && (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-white"
+                className="pointer-events-none absolute inset-0 z-20 bg-white"
                 style={{ animation: "flash-pop 380ms ease-out forwards" }}
               />
             )}
@@ -412,11 +420,11 @@ export default function CameraScreen({
                 type="button"
                 onClick={() => void flip()}
                 aria-label="Switch camera"
-                className="group animate-fade absolute right-2.5 bottom-2.5 grid size-12 place-items-center rounded-full bg-ink/75 text-pink ring-1 ring-paper/25 transition-transform duration-300 active:scale-90 active:ring-pink"
+                className="group animate-fade absolute right-2 bottom-2 z-10 grid size-11 place-items-center rounded-full bg-ink/80 text-pink ring-1 ring-paper/25 transition-transform duration-300 active:scale-90 active:ring-pink"
               >
                 <svg
-                  width="22"
-                  height="22"
+                  width="21"
+                  height="21"
                   viewBox="0 0 24 24"
                   fill="none"
                   aria-hidden="true"
@@ -441,15 +449,15 @@ export default function CameraScreen({
 
             {/* ---------- Overlays: permission, loading, failure ---------- */}
             {gate === "ask" && status === "idle" && (
-              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep p-5 text-center">
+              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95 p-5 text-center">
                 <div>
                   <p className="t-label text-pink">Camera</p>
-                  <h2 className="t-display mt-3 text-[2.2rem] text-paper">
+                  <h2 className="t-display mt-3 text-[2rem] text-paper">
                     step into
                     <br />
                     the booth
                   </h2>
-                  <p className="t-body mx-auto mt-3 max-w-[26ch] text-[0.95rem] text-paper/60">
+                  <p className="t-body mx-auto mt-3 max-w-[26ch] text-[0.9rem] text-paper/60">
                     We need your camera to take the three photos. They stay on
                     your phone — nothing is uploaded.
                   </p>
@@ -459,20 +467,20 @@ export default function CameraScreen({
                       setGate("open");
                       void open();
                     }}
-                    className="t-display relative mt-6 overflow-hidden rounded-2xl bg-pink px-7 py-3.5 text-[1.35rem] text-ink transition-transform active:scale-[0.98]"
+                    className="control control-lit t-machine relative mt-6 overflow-hidden px-6 py-3.5 text-[1.1rem]"
                   >
                     <span className="sheen" aria-hidden="true" />
-                    <span className="relative">turn on camera</span>
+                    <span className="relative">Turn on camera</span>
                   </button>
                 </div>
               </div>
             )}
 
             {status === "starting" && (
-              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep">
+              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95">
                 <div className="w-40 text-center">
                   <p className="t-label text-paper/50">Opening camera</p>
-                  <span className="relative mt-3 block h-px w-full overflow-hidden bg-hairline">
+                  <span className="relative mt-3 block h-px w-full overflow-hidden bg-paper/15">
                     <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
                   </span>
                 </div>
@@ -480,28 +488,28 @@ export default function CameraScreen({
             )}
 
             {status === "error" && problem && (
-              <div className="animate-fade absolute inset-0 grid place-items-center bg-ink-deep p-5 text-center">
+              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95 p-5 text-center">
                 <div>
-                  <h2 className="t-display text-[2rem] text-pink">
+                  <h2 className="t-display text-[1.9rem] text-pink">
                     {CAMERA_MESSAGES[problem].title}
                   </h2>
-                  <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.9rem] text-paper/60">
+                  <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.85rem] text-paper/60">
                     {CAMERA_MESSAGES[problem].body}
                   </p>
-                  <div className="mt-6 flex items-center justify-center gap-3">
+                  <div className="mt-5 flex items-center justify-center gap-2.5">
                     <button
                       type="button"
                       onClick={() => void open()}
-                      className="t-display rounded-2xl bg-pink px-6 py-3 text-[1.2rem] text-ink"
+                      className="control control-lit t-machine px-5 py-3 text-[1rem]"
                     >
-                      try again
+                      Try again
                     </button>
                     <button
                       type="button"
                       onClick={onExit}
-                      className="t-label rounded-2xl border border-hairline px-5 py-3.5 text-paper/70"
+                      className="control t-machine px-5 py-3 text-[1rem]"
                     >
-                      Go back
+                      Back
                     </button>
                   </div>
                 </div>
@@ -510,8 +518,8 @@ export default function CameraScreen({
           </div>
         </main>
 
-        {/* ---------- Filters ---------- */}
-        <div className="shrink-0 pt-2 pb-1">
+        {/* ---------- Filter bank ---------- */}
+        <div className="shrink-0 pt-1.5">
           <FilterRail
             activeId={filterId}
             onSelect={setFilterId}

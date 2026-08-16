@@ -30,14 +30,30 @@ export const EVENT = {
 } as const;
 
 /**
- * The little tracked labels along the bottom of the cabinet — the
- * spec plate on a piece of hardware. Keep them short and true;
- * they're read at 9px.
+ * MACHINE
+ * ----------------------------------------------------------------
+ * The markings silkscreened onto the booth's panels. None of it is
+ * decoration for its own sake — it's what a real machine has
+ * printed on it, and it's what sells the object. Keep it short and
+ * true; most of it is read at 8px.
+ */
+export const MACHINE = {
+  /** On the name plate, when there's nothing more urgent to say. */
+  model: "RB-01",
+  serialLabel: "Unit",
+  serial: "BLR/001",
+  /** Beside the print slot. */
+  slotLabel: "Prints here",
+} as const;
+
+/**
+ * The spec plate on the idle screen. Keep the labels short; they're
+ * read at 9px.
  */
 export const CREDITS = [
   { label: "Shots", value: "3" },
   { label: "Countdown", value: "5 sec" },
-  { label: "Typeface", value: "League Spartan" },
+  { label: "Output", value: "9:16 story" },
 ] as const;
 
 /**

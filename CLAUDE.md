@@ -49,14 +49,16 @@ app/
     CameraScreen.tsx      Permission, countdown, capture sequence
     ResultScreen.tsx      Developing state, poster reveal, save/share
 components/
-  Cabinet.tsx             The booth: hood, screen, deck. Wraps every stage
+  Cabinet.tsx             The booth: hood, bezel, tube, deck, base
+  Control.tsx             A key on the deck. `lit` marks the one that glows
+  SegmentDigit.tsx        One seven-segment numeral
+  Countdown.tsx           The segment display + its draining gauge
   BrandMark.tsx           Logo with typographic fallback
   MicMark.tsx             The mic, as halftone SVG
-  Backdrop.tsx            Fixed dot field, light sweep, grain
+  Backdrop.tsx            The room: dot field and grain
   Marquee.tsx             Endless tracked-caps ticker
   RiseText.tsx            Display type revealed letter by letter
-  CountdownRing.tsx       Draining ring + the digit inside it
-  FilterRail.tsx          Horizontal filter picker, chips lifted off the camera
+  FilterRail.tsx          The filter bank: numbered keys, lit when selected
   FilterLayers.tsx        Renders a filter's washes + grain over anything
   StripProgress.tsx       Three cells that fill with real thumbnails
 lib/
@@ -118,24 +120,76 @@ painted onto canvas through `Path2D`:
 Neither is traced from the illustrations in the Raahe brand guide, and that
 distinction matters — see the hard constraints above.
 
-## The cabinet
+## The machine
 
-The booth is a piece of hardware. `components/Cabinet.tsx` is the machine and
-every stage renders inside one:
+The app is a photobooth — a physical object with a screen in it, not a website
+with a camera. `components/Cabinet.tsx` is that object and every stage renders
+inside one:
 
-    hood    speaker grille, the mark, the date
-    screen  an inset well with a pink tube glow — the stage content
-    deck    the controls, a row of buttons, and the spec plate
+    hood    speaker grilles, the lens, the flash bulb, the name plate
+    bezel   a raised frame with the tube sunk into it
+    deck    the controls, indicator lamps, the unit plate
+    base    the slot the strip prints out of, vents, markings
 
-What changes between home, camera and result is the screen, not the machine. Two
-props trim it where height is short: `credits={false}` drops the spec plate,
-`lean` also drops the grille and the button row (the result screen shows a 9:16
-picture and needs every pixel).
+What changes between home, camera and result is what's on the screen — never
+the machine around it. `lean` trims the base to its slot where the screen needs
+the height. `flash` fires the bulb on the hood, so the machine reacts when a
+photo is taken. `status` is the two or three words on the name plate.
+
+On a phone the casing runs to all four edges and the screen is most of what you
+see. Above 34rem the whole object pulls in, gains its corner radius and its
+outer shadow, and sits in the room. The composition is the same either way — it
+is not two designs.
+
+Its markings live in `MACHINE` in `lib/config/event.ts`, not in the component.
+
+## Materials
+
+None of this is a photorealistic render. It's the handful of cues in
+`globals.css` that make a flat panel read as a solid one:
+
+| Class | Is |
+|---|---|
+| `.panel` / `.machine` | painted metal, lit from above |
+| `.inset` | anything sunk into the casing |
+| `.bezel` / `.tube` | the frame and the glass |
+| `.control` | a key standing on its own shadow |
+| `.grain` | fine noise over a surface, so nothing is perfectly clean |
+| `.screw` `.grille` `.vents` `.lens` `.bulb` `.lamp` `.slot` `.plate` | the fittings |
+
+The rule behind all of it: **a light top edge, a dark bottom edge, and a shadow
+where something is recessed.** That's what sells an edge. `--key-throw` is how
+far a control travels when pressed, and `.control:active` moves it down by
+exactly the shadow it was standing on — change one and change the other.
+
+Gradients are for material only — the lit face of a panel, the curve of a key.
+Not for decoration.
+
+**Keep the tube's effects off the content.** Scanlines, vignette and flicker all
+live on `.tube::after`, above the screen and faint. The flicker in particular
+must never go on `.tube` itself: that would dim the camera preview with it, and
+a preview that pulses is a preview you don't trust.
 
 On the camera screen the square the camera actually captures sits in the middle
-of the screen with the HUD above it and the filters below, letterboxed against
-the well. Don't be tempted to make the video fill the well — the preview would
+of the tube with the HUD above it and the filter bank below, letterboxed against
+the glass. Don't be tempted to make the video fill the tube — the preview would
 then show more than the square that gets captured, and it would be lying.
+
+**`.preview-box` reserves a fixed height for all of that.** The 26.5rem in
+`globals.css` is the hood, bezel, deck, HUD and filter bank added up. Add a row
+to any of them and add it there too, or the square grows past the space left for
+it and the tube clips the bottom off the preview.
+
+## Typography
+
+Three voices, and the tension between them is the whole design:
+
+- `.t-display` — huge, tight, lowercase. The brand.
+- `.t-label` — tiny, wide-tracked caps. What's printed on the panels.
+- `.t-machine` — bold upright caps. What the display shouts and what's
+  stencilled on the keys.
+
+Prefer these over ad-hoc font sizing.
 
 ## Design language
 
@@ -154,23 +208,20 @@ labels. Two classes in `globals.css` carry this:
 
 - `.t-display` — 800 weight, lowercase, `-0.045em` tracking, `0.85` line-height
 - `.t-label` — 600 weight, UPPERCASE, `+0.16em` tracking, 11px
+- `.t-machine` — 800 weight, UPPERCASE, upright, for the machine's own voice
 
-Prefer these over ad-hoc font sizing.
+The pink is the machine's light: the one lit key, the lamps, the countdown, the
+glow inside the tube. Everything else is painted metal and glass. If a second
+thing on a screen is glowing pink, one of them is wrong.
 
-The booth reads as hardware, so depth is allowed — but only as steps in value,
-one inset ring and the screen's pink glow. Not drop shadows on everything, and
-no gradient surfaces: the grille, the dot field and the deck buttons are all
-flat. The one gradient in the app is the screen's scanlines, and they are kept
-faint on purpose — over the camera preview they have to be felt rather than
-seen, or the preview stops telling the truth.
+See **Materials** above for how the surfaces are built.
 
 ### The app column
 
 Every screen renders inside `.app-frame` in `page.tsx`: one column, `--app-width`
-wide, centred on the `.app-stage`. On a phone it fills the screen. On anything
-larger it becomes a booth panel — capped in **both** directions, bordered and
-rounded — because a phone layout stretched to the full height of a monitor is
-nobody's idea of a design.
+wide, centred on the `.app-stage`. On a phone the machine fills it. On anything
+larger it is capped in **both** directions, because a phone layout stretched to
+the full height of a monitor is nobody's idea of a design.
 
 **Heights are `100svh`, never `100dvh`.** `svh` is the small viewport, the one
 you get with a mobile browser's toolbars showing. Size to `dvh` and the moment a

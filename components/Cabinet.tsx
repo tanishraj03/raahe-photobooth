@@ -2,93 +2,143 @@
 
 import type { ReactNode } from "react";
 import BrandMark from "@/components/BrandMark";
-import { CREDITS, EVENT } from "@/lib/config/event";
+import { EVENT, MACHINE } from "@/lib/config/event";
 
 /**
- * The booth itself. Every stage renders inside one of these, so what
- * changes between home, camera and result is the screen — not the
+ * THE BOOTH
+ * ----------------------------------------------------------------
+ * A photobooth built out of panels: a hood carrying the lens and
+ * the flash, a bezel with the tube sunk into it, a deck of controls
+ * and a base with the print slot the strip comes out of.
+ *
+ * Every stage renders inside one of these, so what changes between
+ * home, camera and result is what's on the screen — never the
  * machine around it.
  *
- *   hood    speaker grille, the mark, the date
- *   screen  an inset well with a pink tube glow (the stage content)
- *   deck    the controls, a row of buttons, and the spec plate
+ * On a phone the casing runs to all four edges and the screen is
+ * most of what you see. On anything larger the whole object pulls
+ * in, gains its corner radius and sits in the room.
  */
+
+/** A fastener. Rotated a little so no two look stamped. */
+function Screw({ turn = 0, className = "" }: { turn?: number; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`screw ${className}`}
+      style={{ transform: `rotate(${turn}deg)` }}
+    />
+  );
+}
+
 export default function Cabinet({
   children,
   deck,
-  credits = true,
+  status,
+  flash = false,
   lean = false,
 }: {
   /** What's on the screen. */
   children: ReactNode;
-  /** The controls under it. */
+  /** The controls on the deck under it. */
   deck?: ReactNode;
-  /** Show the spec plate. Off where the screen needs the height. */
-  credits?: boolean;
-  /**
-   * Drop the grille and the button row too. The result screen shows
-   * a 9:16 picture, and every row of trim is height it can't have.
-   */
+  /** Two or three words on the status plate. */
+  status?: string;
+  /** Fires the flash bulb on the hood. */
+  flash?: boolean;
+  /** Trim the base to its slot. Used where the screen needs height. */
   lean?: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
-      {/* ---------- Hood ---------- */}
-      <div className="pt-safe shrink-0">
-        <div className="gutter flex items-center justify-between gap-4 pt-3 pb-2.5">
-          <BrandMark height={19} className="animate-fade" />
-          <span className="t-label animate-fade text-paper/40">
-            {EVENT.dateShort}
-          </span>
+    <div className="machine grain">
+      {/* ---------- Fasteners ---------- */}
+      <Screw turn={18} className="absolute top-2.5 left-2.5 z-20" />
+      <Screw turn={-32} className="absolute top-2.5 right-2.5 z-20" />
+      <Screw turn={40} className="absolute bottom-2.5 left-2.5 z-20" />
+      <Screw turn={-8} className="absolute right-2.5 bottom-2.5 z-20" />
+
+      {/* ---------- Hood: lens, flash, speakers ---------- */}
+      <div className="pt-safe shrink-0 px-6">
+        <div className="flex items-center gap-3 pt-3.5">
+          <span className="grille h-6 flex-1" aria-hidden="true" />
+
+          <span className="lens block size-9 shrink-0" aria-hidden="true" />
+
+          <span
+            className={`bulb block h-3.5 w-7 shrink-0 ${flash ? "bulb-on" : ""}`}
+            aria-hidden="true"
+          />
+
+          <span className="grille h-6 flex-1" aria-hidden="true" />
         </div>
-        {!lean && (
-          <div className="gutter pb-3">
-            <div className="grille animate-fade delay-1" aria-hidden="true" />
+
+        {/* ---------- Name plate ---------- */}
+        <div className="flex items-center justify-between gap-3 pt-2.5 pb-3">
+          <BrandMark height={15} className="opacity-80" />
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`lamp ${status ? "lamp-on animate-blink" : ""}`}
+              aria-hidden="true"
+            />
+            <span className="t-label text-[8.5px] text-paper/45">
+              {status ?? MACHINE.model}
+            </span>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ---------- Screen ---------- */}
-      <div className="gutter min-h-0 flex-1">
-        <div className="screen animate-fade delay-2 h-full">{children}</div>
+      <div className="min-h-0 flex-1 px-3">
+        <div className="bezel h-full">
+          <div className="tube">{children}</div>
+        </div>
       </div>
 
       {/* ---------- Deck ---------- */}
-      <div className="pb-safe shrink-0">
-        {deck && <div className="gutter pt-3.5">{deck}</div>}
+      <div className="pb-safe shrink-0 px-4">
+        {deck && <div className="pt-3.5">{deck}</div>}
 
-        {!lean && (
-          <div
-            className="gutter animate-fade delay-4 flex items-center gap-2 pt-3.5"
-            aria-hidden="true"
-          >
-            <span className="deck-button bg-pink" />
-            <span className="deck-button bg-violet" />
-            <span className="deck-button bg-mindaro" />
-            <span className="deck-button bg-orange" />
-            <span className="ml-1 h-px flex-1 bg-hairline" />
+        {/* Lamps on the left, the spec plate on the right. */}
+        <div
+          className="flex items-end justify-between gap-3 pt-3"
+          aria-hidden="true"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="lamp lamp-on" />
+            <span className="lamp" />
+            <span className="lamp" />
           </div>
-        )}
 
-        {credits && (
-          <div
-            className="gutter animate-fade delay-5 flex items-start justify-between gap-3 pt-3 pb-3"
-            aria-hidden="true"
-          >
-            {CREDITS.map((credit) => (
-              <div key={credit.label} className="min-w-0">
-                <p className="t-label text-[8.5px] text-paper/30">
-                  {credit.label}
-                </p>
-                <p className="t-label truncate text-[8.5px] text-paper/60">
-                  {credit.value}
-                </p>
-              </div>
-            ))}
+          <div className="plate flex items-center gap-2 px-2 py-1">
+            <span className="t-label text-[8px] text-paper/30">
+              {MACHINE.serialLabel}
+            </span>
+            <span className="t-label text-[8px] text-paper/55">
+              {MACHINE.serial}
+            </span>
           </div>
-        )}
+        </div>
 
-        {!credits && <div className={lean ? "h-3.5" : "h-3"} />}
+        {/* ---------- Base: the slot the strip comes out of ---------- */}
+        <div className="pt-3 pb-3">
+          <div className="slot" aria-hidden="true" />
+
+          {!lean && (
+            <div
+              className="flex items-center justify-between gap-4 pt-2.5"
+              aria-hidden="true"
+            >
+              <span className="t-label text-[8px] text-paper/28">
+                {MACHINE.slotLabel}
+              </span>
+              <span className="vents h-3.5 w-20" />
+              <span className="t-label text-[8px] text-paper/28">
+                {EVENT.dateShort}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
