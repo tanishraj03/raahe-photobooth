@@ -125,6 +125,27 @@ function constraintsFor(
   }));
 }
 
+/* ================================================================
+   TORCH
+
+   Some phones will let a web page turn the camera light on, most
+   won't, and no desktop will. It is an optional constraint on the
+   live track, so the only honest way to know is to ask the track
+   what it can do — and to carry on regardless if the answer is no.
+   ================================================================ */
+
+function trackSupportsTorch(track: MediaStreamTrack | undefined): boolean {
+  if (!track?.getCapabilities) return false;
+  try {
+    const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
+      torch?: boolean;
+    };
+    return capabilities.torch === true;
+  } catch {
+    return false;
+  }
+}
+
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -135,6 +156,7 @@ export function useCamera() {
   const [problem, setProblem] = useState<CameraProblem | null>(null);
   const [mirrored, setMirrored] = useState(true);
   const [cameraCount, setCameraCount] = useState(0);
+  const [hasTorch, setHasTorch] = useState(false);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -166,6 +188,9 @@ export function useCamera() {
 
           const track = stream.getVideoTracks()[0];
           if (track) setMirrored(isFrontFacing(track));
+          // Asked fresh every time, because the front camera on a
+          // phone usually has no light even when the back one does.
+          setHasTorch(trackSupportsTorch(track));
 
           const video = videoRef.current;
           if (video) {
@@ -226,6 +251,26 @@ export function useCamera() {
     }
   }, [open]);
 
+  /**
+   * Turns the camera light on or off. Resolves to what actually
+   * happened, so a caller can fall back to lighting the screen
+   * instead of pretending the phone has a flash.
+   */
+  const setTorch = useCallback(async (on: boolean): Promise<boolean> => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!trackSupportsTorch(track) || !track) return false;
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: on } as MediaTrackConstraintSet & { torch: boolean }],
+      });
+      return true;
+    } catch {
+      // The device said it could and then wouldn't. Nothing to do
+      // but carry on with the screen flash.
+      return false;
+    }
+  }, []);
+
   // Release the camera when the screen goes away, so the light turns off.
   useEffect(() => stop, [stop]);
 
@@ -235,8 +280,11 @@ export function useCamera() {
     problem,
     mirrored,
     canFlip: cameraCount > 1,
+    /** Whether this camera has a light we're allowed to switch on. */
+    hasTorch,
     open,
     stop,
     flip,
+    setTorch,
   };
 }

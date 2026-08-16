@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Cabinet from "@/components/Cabinet";
 import Control from "@/components/Control";
+import { EVENT } from "@/lib/config/event";
 import { composeStrip, type Strip } from "@/lib/compose";
 import {
   canShareFiles,
@@ -233,15 +234,18 @@ export default function ResultScreen({
           </>
         }
       >
-        {/* No heading in here: the strip is 9:16 and every row of
-            type is width it loses. The name plate says "Photo
-            developed" instead. */}
-        <div className="flex h-full flex-col">
+        {/*
+          On a phone there's no heading in here: the strip is 9:16 and
+          every row of type is width it loses — the name plate says
+          "Photo developed" instead. A kiosk has width to spare, so
+          the strip moves off centre and the type takes the rest.
+        */}
+        <div className="flex h-full flex-col lg:flex-row lg:items-center lg:justify-center lg:gap-16 lg:px-16">
           <button
             type="button"
             onClick={() => setZoomed(true)}
             aria-label="View the photo strip larger"
-            className="flex min-h-0 flex-1 items-center justify-center px-4 py-2.5"
+            className="flex min-h-0 flex-1 items-center justify-center px-4 py-2.5 lg:h-full lg:flex-none lg:py-8"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -250,6 +254,25 @@ export default function ResultScreen({
               className="animate-print max-h-full max-w-full rounded-sm ring-1 ring-paper/15"
             />
           </button>
+
+          <div className="hidden lg:block lg:max-w-[26rem]">
+            <p className="t-label animate-rise flex items-center gap-2.5 text-[11px] text-pink">
+              <span aria-hidden="true" className="lamp lamp-on animate-blink" />
+              Photo developed
+            </p>
+            <h1 className="t-display animate-rise delay-1 mt-4 text-[clamp(3rem,5vw,4.5rem)] text-paper">
+              your raahe
+              <br />
+              moment
+            </h1>
+            <p className="t-body animate-rise delay-2 mt-6 text-[1.15rem] text-paper/55">
+              A 9:16 print, sized for a story. Tap it to see it full
+              size, or take it with you.
+            </p>
+            <p className="t-label animate-rise delay-3 mt-8 text-[10px] text-paper/30">
+              {EVENT.name} · {EVENT.venue} · {EVENT.date}
+            </p>
+          </div>
         </div>
       </Cabinet>
 

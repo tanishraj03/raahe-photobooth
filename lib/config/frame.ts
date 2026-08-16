@@ -6,30 +6,29 @@
  * whole layout out from these values, nothing is hard-coded.
  *
  * THE SHAPE
- * The export is **9:16, 1080 × 1920** — a full Instagram story.
+ * The export is **9:16, 1080 × 1920** — and the whole of it is the
+ * photo strip. Not a story with a strip sitting on it: the canvas
+ * edge *is* the edge of the strip, the borders are the strip's own
+ * borders, and the artwork in them runs to the trim.
  *
- * On it sits one thing: an actual photobooth strip. Three photos in
- * a column, generous borders, and the event set out underneath them
- * — mark, name, venue, date, centred, the way a real booth prints
- * it. The borders carry small music-and-art motifs, and the empty
- * margins either side run a repeating ticker.
- *
- *      ┌───────────────────────────┐
- *      │ ·  ┌───────────────────┐  ·│
- *      │ R  │     RAAHE.CO      │  R│
- *      │ A  │ ♪ ┌─────────────┐ ★ │ A│
- *      │ A  │   │    photo    │   │ A│
- *      │ H  │ ◎ ├─────────────┤ ▮ │ H│
- *      │ E  │   │    photo    │   │ E│
- *      │ ·  │ ⌇ ├─────────────┤ ♪ │ ·│
- *      │    │   │    photo    │   │  │
- *      │    │   └─────────────┘   │  │
- *      │    │       [logo]        │  │
- *      │    │   raahe open mic    │  │
- *      │    │ STARBUCKS VITTAL…   │  │
- *      │    │     22.08.2026      │  │
- *      │    └───────────────────┘  │
- *      └───────────────────────────┘
+ *      ┌────────────────────────────┐ ← the canvas edge is the strip edge
+ *      │ ✦ camera        RAAHE.CO   │
+ *      │ ────────────────────────── │
+ *      │ ┃ ┌──────────────────────┐ │
+ *      │ ┃ │       photo 1        │ │
+ *      │ ┃ └──────────────────────┘ │  the borders carry the
+ *      │ ┃ ┌──────────────────────┐ │  cable and the drawings
+ *      │ ┃ │       photo 2        │ │
+ *      │ ┃ └──────────────────────┘ │
+ *      │ ┃ ┌──────────────────────┐ │
+ *      │ ┃ │       photo 3        │ │
+ *      │ ┃ └──────────────────────┘ │
+ *      │ ────────────────────────── │
+ *      │        [ raahe logo ]      │
+ *      │       RAAHE OPEN MIC       │
+ *      │   STARBUCKS VITTAL MALLYA  │
+ *      │         22.08.2026         │
+ *      └────────────────────────────┘
  *
  * All sizes are pixels at export resolution.
  */
@@ -39,17 +38,20 @@ export const FRAME = {
 
   /**
    * Width divided by height of a single photo.
-   *   1     = square       (fills the strip well, frames faces)
-   *   0.8   = 4:5 portrait (taller cells, narrower strip)
-   *   1.25  = 5:4 landscape
    *
-   * If you change this, also change `aspect-ratio` in the
-   * .preview-box rule in app/globals.css so the camera matches.
+   * 16/9 is not a style choice, it's arithmetic: three photos across
+   * the full width of a 1080 × 1920 strip, with room left over at
+   * the head and the foot, only fits at about this shape. Squares
+   * would need 2760px of height and there are 1920.
+   *
+   * If you change this, change `aspect-ratio` in the .preview-box
+   * rule in app/globals.css to match, or the camera will show a
+   * different crop from the one it takes.
    */
-  cellAspect: 1,
+  cellAspect: 16 / 9,
 
   /** Pixel width each photo is captured at, before it's placed. */
-  photoWidth: 1080,
+  photoWidth: 1280,
 
   /** JPEG quality of each captured photo, 0 to 1. */
   photoQuality: 0.92,
@@ -57,116 +59,133 @@ export const FRAME = {
   /** JPEG quality of the finished image. */
   exportQuality: 0.94,
 
-  /* ---------------- The poster ---------------- */
+  /* ---------------- The strip ---------------- */
 
   poster: {
-    /** 9:16 — a full-bleed Instagram story. */
+    /** 9:16. The whole thing is the strip. */
     width: 1080,
     height: 1920,
-    /** Space between the poster edge and the strip. */
-    margin: 56,
-    /** Faint dot field over the background. Set size to 0 to remove. */
-    dotSize: 2.5,
-    dotSpacing: 46,
-    /** Little printer's crop marks in the corners. */
+    /**
+     * The strip's own border, left and right. This is where the
+     * cable and the drawings live, so it has to be worth looking at
+     * — wide enough for a drawing to be a drawing rather than a
+     * mark, and no wider.
+     */
+    border: 150,
+    /** Space between photos. */
+    photoGap: 22,
+    /**
+     * How the space left over above and below the photos is split.
+     * The foot carries four lines of type, so it gets more.
+     */
+    headShare: 0.34,
+    /** Corner rounding on each photo. Real booths print them square. */
+    photoRadius: 5,
+    /** A hairline drawn tight around each photo. */
+    photoKeyline: 2,
+    /** Rule under the head and over the foot. */
+    ruleHeight: 3,
+  },
+
+  /* ---------------- Grain and ground ---------------- */
+
+  ground: {
+    /** Faint dot field over the whole strip. Set size to 0 to drop. */
+    dotSize: 2.4,
+    dotSpacing: 44,
+    /** Printer's crop marks at the trim. */
     cropMarks: true,
-    cropMarkLength: 26,
-    cropMarkInset: 22,
+    cropMarkLength: 30,
+    cropMarkInset: 20,
     cropMarkWidth: 2,
   },
 
-  /* ---------------- The margins either side ---------------- */
+  /* ---------------- The artwork ---------------- */
 
-  margins: {
-    /** A repeating line of tracked capitals running up each side. */
-    ticker: true,
-    size: 17,
-    tracking: 0.22,
-    /** Space between one repeat and the next. */
-    gap: 44,
-  },
-
-  /* ---------------- The strip ---------------- */
-
-  strip: {
-    /** The side borders — where the motifs live. */
-    borderX: 56,
-    /** The top border, which carries the small cap line. */
-    borderTop: 58,
-    /** Below the date. */
-    borderBottom: 46,
-    /** Space between photos. A real strip leaves a clear border. */
-    photoGap: 26,
-    /** Corner rounding on each photo. Real booths print them square. */
-    photoRadius: 4,
-    /** Corner rounding on the strip itself. */
-    radius: 20,
-    /** The pink keyline around the strip. Set to 0 to remove it. */
-    keyline: 3,
-    /** A hairline drawn tight around the block of photos. */
-    innerKeyline: 1,
-    /** Space between the last photo and the event block. */
-    footerGap: 46,
-    /** The small tracked line along the top border. */
-    capSize: 17,
-    capTracking: 0.22,
-  },
-
-  /* ---------------- Border motifs ---------------- */
-
-  motifs: {
-    /** Set false for plain borders. */
+  art: {
+    /** Set false for a plain strip. */
     enabled: true,
-    size: 30,
-    /** Distance between one motif and the next, down a border. */
-    step: 152,
-    alpha: 0.6,
-    /** The cycle, top to bottom. Names come from lib/motifs.ts. */
-    order: ["spark", "note", "disc", "mic", "bars", "squiggle"],
-    /** How far the right-hand column is shifted through the cycle. */
-    offset: 3,
+    /**
+     * How much ink bleeds around the pink and white line work. This
+     * is signage glow, not neon — keep it in single figures.
+     */
+    glow: 9,
+    /** The lead that ties the drawings on a border together. */
+    cable: { width: 5, sway: 20, alpha: 0.55 },
+    /**
+     * Drawings down each border, top to bottom, spread evenly over
+     * the run of photos. `height` is the visual height on the strip;
+     * `turn` rotates a wide object onto its side so it can fill a
+     * narrow lane instead of shrinking to nothing in it.
+     */
+    leftBorder: [
+      { name: "micStand", height: 262 },
+      { name: "cassette", height: 206, turn: -90 },
+      { name: "jackPlug", height: 226 },
+    ],
+    rightBorder: [
+      { name: "speakerCab", height: 214 },
+      { name: "handButton", height: 196, turn: 90 },
+      { name: "headphones", height: 176 },
+    ],
+    /** In the head, beside the cap line. */
+    head: { name: "flashCam", height: 126 },
   },
 
-  /* ---------------- The event, under the photos ---------------- */
+  /* ---------------- The head ---------------- */
 
-  footer: {
+  head: {
+    capSize: 20,
+    capTracking: 0.24,
+    /** The small numbers beside each photo. */
+    indexSize: 17,
+    indexTracking: 0.18,
+  },
+
+  /* ---------------- The foot ---------------- */
+
+  foot: {
     /** The mark. Its width follows its own proportions. */
-    logoHeight: 70,
-    logoGap: 26,
+    logoHeight: 62,
+    logoGap: 24,
 
     /** Event name, fitted to one line across the strip. */
-    nameSize: 80,
+    nameSize: 84,
     nameTracking: -0.04,
     nameLineHeight: 0.9,
-    nameGap: 22,
+    nameGap: 20,
 
     /** Venue. Wraps if it has to. */
-    venueSize: 20,
+    venueSize: 21,
     venueTracking: 0.16,
     venueLineGap: 10,
-    venueGap: 18,
+    venueGap: 16,
 
     /** Date. */
-    dateSize: 27,
+    dateSize: 28,
     dateTracking: 0.04,
   },
 
   /* ---------------- Colours ---------------- */
 
   colors: {
-    background: "#1A1A1A",
-    dot: "rgba(240, 78, 152, 0.10)",
-    marginTicker: "rgba(244, 245, 245, 0.09)",
-    strip: "#242424",
-    keyline: "#F04E98",
-    innerKeyline: "rgba(244, 245, 245, 0.12)",
-    photoWell: "#111111",
-    cap: "rgba(244, 245, 245, 0.4)",
-    motif: "#F04E98",
-    cropMark: "rgba(240, 78, 152, 0.4)",
+    background: "#191919",
+    dot: "rgba(240, 78, 152, 0.09)",
+    photoWell: "#101010",
+    photoKeyline: "rgba(244, 245, 245, 0.16)",
+    rule: "#F04E98",
+    cap: "rgba(244, 245, 245, 0.42)",
+    index: "rgba(240, 78, 152, 0.75)",
+    cropMark: "rgba(240, 78, 152, 0.35)",
     title: "#F4F5F5",
     venue: "rgba(244, 245, 245, 0.55)",
     date: "#F04E98",
+    /** The three inks the drawings are made of. */
+    ink: {
+      pink: "#F04E98",
+      paper: "#F4F5F5",
+      grey: "#7E7E7E",
+    },
   },
 } as const;
 

@@ -2,7 +2,7 @@
 
 import { EVENT, LOGO_FALLBACK_TEXT, LOGO_SOURCES } from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
-import { paintMotif } from "@/lib/motifs";
+import { DRAWINGS, paintCable, paintDrawing } from "@/lib/illustrations";
 
 /* ================================================================
    TYPE HELPERS
@@ -31,7 +31,7 @@ function fontStack(): string {
 async function waitForFont(stack: string) {
   if (typeof document === "undefined" || !document.fonts) return;
   const primary = stack.split(",")[0].trim();
-  const F = FRAME.footer;
+  const F = FRAME.foot;
   try {
     await Promise.all([
       document.fonts.load(`800 ${F.nameSize}px ${primary}`),
@@ -241,17 +241,24 @@ export type Strip = {
 };
 
 /**
- * Draws the three photos into the branded 9:16 story and returns it
- * as a JPEG. Runs entirely in the browser — no photo ever leaves the
- * device.
+ * Draws the three photos into the strip and returns it as a JPEG.
+ *
+ * The canvas *is* the strip — 1080 × 1920 of it, edge to edge. There
+ * is no story background and nothing floating on one: the trim of
+ * the image is the trim of the print, and the borders either side of
+ * the photos are the strip's own borders, with the cable and the
+ * drawings running through them.
+ *
+ * Runs entirely in the browser — no photo ever leaves the device.
  */
 export async function composeStrip(photos: string[]): Promise<Strip> {
   const F = FRAME;
   const P = F.poster;
-  const S = F.strip;
-  const Ft = F.footer;
-  const Mo = F.motifs;
-  const Mg = F.margins;
+  const G = F.ground;
+  const A = F.art;
+  const H = F.head;
+  const Ft = F.foot;
+  const inks = F.colors.ink;
   const stack = fontStack();
 
   const [images, logo] = await Promise.all([
@@ -266,53 +273,21 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   /* ---------------- Layout ----------------
 
-     The event block under the photos is reserved at its full size —
-     two venue lines, everything at its configured size — before the
-     photos are measured. Text only ever shrinks from there, so the
-     block can never grow into the pictures. Whatever it doesn't use
-     comes back as air around it. */
+     Everything falls out of two numbers: how wide the border is, and
+     how tall a photo is at that width. What's left over after three
+     of them splits between the head and the foot. */
 
-  const reservedFooter =
-    Ft.logoHeight +
-    Ft.logoGap +
-    Math.round(Ft.nameSize * Ft.nameLineHeight) +
-    Ft.nameGap +
-    Ft.venueSize * 2 +
-    Ft.venueLineGap +
-    Ft.venueGap +
-    Ft.dateSize;
+  const cellWidth = width - P.border * 2;
+  const cellHeight = Math.round(cellWidth / F.cellAspect);
+  const photosHeight = cellHeight * count + P.photoGap * (count - 1);
 
-  const availableHeight = height - P.margin * 2;
-  const gaps = S.photoGap * (count - 1);
+  const spare = Math.max(0, height - photosHeight);
+  const headHeight = Math.round(spare * P.headShare);
+  const photoTop = headHeight;
+  const footTop = photoTop + photosHeight;
+  const footHeight = height - footTop;
 
-  const cellHeight = Math.floor(
-    (availableHeight -
-      S.borderTop -
-      S.borderBottom -
-      gaps -
-      S.footerGap -
-      reservedFooter) /
-      count,
-  );
-  const cellWidth = Math.min(
-    Math.round(cellHeight * F.cellAspect),
-    width - P.margin * 2 - S.borderX * 2,
-  );
-
-  const photosHeight = cellHeight * count + gaps;
-  const stripWidth = cellWidth + S.borderX * 2;
-  const stripHeight =
-    S.borderTop +
-    photosHeight +
-    S.footerGap +
-    reservedFooter +
-    S.borderBottom;
-
-  const stripX = Math.round((width - stripWidth) / 2);
-  const stripY = Math.round((height - stripHeight) / 2);
-  const centreX = stripX + stripWidth / 2;
-  const photoX = stripX + S.borderX;
-  const photoTop = stripY + S.borderTop;
+  const centreX = width / 2;
 
   /* ---------------- Canvas ---------------- */
 
@@ -325,156 +300,190 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   ctx.imageSmoothingQuality = "high";
   ctx.textBaseline = "middle";
 
-  // Ground
+  // The paper.
   ctx.fillStyle = F.colors.background;
   ctx.fillRect(0, 0, width, height);
 
-  if (P.dotSize > 0) {
+  if (G.dotSize > 0) {
     ctx.fillStyle = F.colors.dot;
-    for (let y = P.dotSpacing / 2; y < height; y += P.dotSpacing) {
-      for (let x = P.dotSpacing / 2; x < width; x += P.dotSpacing) {
+    for (let y = G.dotSpacing / 2; y < height; y += G.dotSpacing) {
+      for (let x = G.dotSpacing / 2; x < width; x += G.dotSpacing) {
         ctx.beginPath();
-        ctx.arc(x, y, P.dotSize / 2, 0, Math.PI * 2);
+        ctx.arc(x, y, G.dotSize / 2, 0, Math.PI * 2);
         ctx.fill();
       }
     }
   }
 
-  /* ---------------- Margin tickers ----------------
+  /* ---------------- The borders ----------------
 
-     The event, repeating up the left margin and down the right, so
-     the space either side of the strip is doing something. */
+     Cable first, drawings over it, so a lead reads as running behind
+     the thing it's plugged into. */
 
-  if (Mg.ticker && stripX > Mg.size * 3) {
-    const line = `${EVENT.name} · ${EVENT.venue} · ${EVENT.date} · `.toUpperCase();
-    const tracking = Mg.size * Mg.tracking;
+  if (A.enabled) {
+    const cableTop = photoTop - 24;
+    const cableRun = photosHeight + 48;
 
-    ctx.font = `600 ${Mg.size}px ${stack}`;
-    ctx.fillStyle = F.colors.marginTicker;
-    const runWidth = measure(ctx, line, tracking) + Mg.gap;
+    for (const [x, phase] of [
+      [P.border / 2, 0],
+      [width - P.border / 2, 1],
+    ] as const) {
+      paintCable(ctx, x, cableTop, cableRun, {
+        colour: inks.pink,
+        width: A.cable.width,
+        sway: A.cable.sway,
+        alpha: A.cable.alpha,
+        glow: A.glow,
+        phase,
+      });
+    }
 
-    for (const side of [0, 1]) {
-      ctx.save();
-      if (side === 0) {
-        // Up the left.
-        ctx.translate(stripX / 2, height);
-        ctx.rotate(-Math.PI / 2);
-      } else {
-        // Down the right.
-        ctx.translate(width - stripX / 2, 0);
-        ctx.rotate(Math.PI / 2);
-      }
-      for (let cursor = 0; cursor < height; cursor += runWidth) {
-        drawText(ctx, line, cursor, 0, tracking);
-      }
-      ctx.restore();
+    /*
+     * Each drawing is centred in its lane and clamped so it can
+     * never spill onto a photo. A turned drawing swaps its footprint
+     * — that's the point of turning it, so a wide object can fill a
+     * narrow lane instead of shrinking to nothing in it.
+     */
+    const place = (
+      items: readonly { name: string; height: number; turn?: number }[],
+      laneLeft: number,
+      spread: number[],
+    ) => {
+      items.forEach((item, index) => {
+        const box = DRAWINGS[item.name]?.box;
+        if (!box) return;
+
+        const turned = item.turn === 90 || item.turn === -90;
+        const room = P.border - 10;
+
+        // Footprint on the strip, before it's clamped to the lane.
+        let visualHeight = item.height;
+        let visualWidth = turned
+          ? (box[1] / box[0]) * visualHeight
+          : (box[0] / box[1]) * visualHeight;
+
+        if (visualWidth > room) {
+          const shrink = room / visualWidth;
+          visualWidth = room;
+          visualHeight *= shrink;
+        }
+
+        // paintDrawing wants the drawing's own height and rotates
+        // about the centre of the box it's given — so for a turned
+        // drawing the two simply swap.
+        const drawHeight = turned ? visualWidth : visualHeight;
+        const drawWidth = (box[0] / box[1]) * drawHeight;
+
+        const centreLane = laneLeft + P.border / 2;
+        const centreY = photoTop + photosHeight * spread[index];
+
+        paintDrawing(
+          ctx,
+          item.name,
+          centreLane - drawWidth / 2,
+          centreY - drawHeight / 2,
+          drawHeight,
+          {
+            inks,
+            glow: A.glow,
+            rotate: item.turn ? (item.turn * Math.PI) / 180 : undefined,
+          },
+        );
+      });
+    };
+
+    place(A.leftBorder, 0, [0.14, 0.5, 0.86]);
+    place(A.rightBorder, width - P.border, [0.17, 0.52, 0.87]);
+  }
+
+  /* ---------------- Head ---------------- */
+
+  if (A.enabled) {
+    if (DRAWINGS[A.head.name]) {
+      const h = Math.min(A.head.height, headHeight - 56);
+      paintDrawing(ctx, A.head.name, 26, (headHeight - 34 - h) / 2, h, {
+        inks,
+        glow: A.glow,
+      });
     }
   }
 
-  /* ---------------- The strip ---------------- */
-
-  ctx.fillStyle = F.colors.strip;
-  roundRectPath(ctx, stripX, stripY, stripWidth, stripHeight, S.radius);
-  ctx.fill();
-
-  if (S.keyline > 0) {
-    ctx.strokeStyle = F.colors.keyline;
-    ctx.lineWidth = S.keyline;
-    roundRectPath(
-      ctx,
-      stripX + S.keyline / 2,
-      stripY + S.keyline / 2,
-      stripWidth - S.keyline,
-      stripHeight - S.keyline,
-      S.radius,
-    );
-    ctx.stroke();
-  }
-
-  /* ---------------- Cap line along the top border ---------------- */
-
-  const cap = LOGO_FALLBACK_TEXT.toUpperCase();
+  const cap = `${LOGO_FALLBACK_TEXT} · photobooth`.toUpperCase();
   const capSize = fitSize(
     ctx,
     cap,
     600,
-    S.capSize,
-    S.capTracking,
-    cellWidth,
+    H.capSize,
+    H.capTracking,
+    width * 0.52,
     stack,
   );
   ctx.font = `600 ${capSize}px ${stack}`;
   ctx.fillStyle = F.colors.cap;
-  drawCentred(
+  const capTracking = capSize * H.capTracking;
+  const capWidth = measure(ctx, cap, capTracking);
+  drawText(
     ctx,
     cap,
-    centreX,
-    stripY + S.borderTop / 2,
-    capSize * S.capTracking,
+    width - 40 - capWidth,
+    (headHeight - 34) / 2,
+    capTracking,
   );
+
+  ctx.fillStyle = F.colors.rule;
+  ctx.fillRect(40, headHeight - 26, width - 80, P.ruleHeight);
 
   /* ---------------- Photos ---------------- */
 
   images.forEach((image, index) => {
-    const y = photoTop + index * (cellHeight + S.photoGap);
+    const y = photoTop + index * (cellHeight + P.photoGap);
 
     ctx.save();
-    roundRectPath(ctx, photoX, y, cellWidth, cellHeight, S.photoRadius);
+    roundRectPath(ctx, P.border, y, cellWidth, cellHeight, P.photoRadius);
     ctx.clip();
 
     // Something dark behind, so a slow-loading photo never shows white.
     ctx.fillStyle = F.colors.photoWell;
-    ctx.fillRect(photoX, y, cellWidth, cellHeight);
+    ctx.fillRect(P.border, y, cellWidth, cellHeight);
 
     // The photo is already the right shape, so this is a clean fill.
-    ctx.drawImage(image, photoX, y, cellWidth, cellHeight);
+    ctx.drawImage(image, P.border, y, cellWidth, cellHeight);
+    ctx.restore();
+
+    if (P.photoKeyline > 0) {
+      ctx.strokeStyle = F.colors.photoKeyline;
+      ctx.lineWidth = P.photoKeyline;
+      roundRectPath(
+        ctx,
+        P.border + P.photoKeyline / 2,
+        y + P.photoKeyline / 2,
+        cellWidth - P.photoKeyline,
+        cellHeight - P.photoKeyline,
+        P.photoRadius,
+      );
+      ctx.stroke();
+    }
+
+    // The frame number, set on its side against the photo's edge.
+    ctx.save();
+    ctx.translate(P.border - 16, y + 30);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = `700 ${H.indexSize}px ${stack}`;
+    ctx.fillStyle = F.colors.index;
+    drawText(
+      ctx,
+      String(index + 1).padStart(2, "0"),
+      0,
+      0,
+      H.indexSize * H.indexTracking,
+    );
     ctx.restore();
   });
 
-  if (S.innerKeyline > 0) {
-    ctx.strokeStyle = F.colors.innerKeyline;
-    ctx.lineWidth = S.innerKeyline;
-    ctx.strokeRect(
-      photoX - 0.5,
-      photoTop - 0.5,
-      cellWidth + 1,
-      photosHeight + 1,
-    );
-  }
+  /* ---------------- Foot ---------------- */
 
-  /* ---------------- Motifs down both borders ---------------- */
-
-  if (Mo.enabled && Mo.order.length) {
-    const runs = Math.max(1, Math.floor(photosHeight / Mo.step));
-    const runHeight = (runs - 1) * Mo.step + Mo.size;
-    const first = photoTop + (photosHeight - runHeight) / 2;
-    const inset = (S.borderX - Mo.size) / 2;
-
-    for (let i = 0; i < runs; i++) {
-      const y = first + i * Mo.step;
-
-      paintMotif(
-        ctx,
-        Mo.order[i % Mo.order.length],
-        stripX + inset,
-        y,
-        Mo.size,
-        F.colors.motif,
-        Mo.alpha,
-      );
-      paintMotif(
-        ctx,
-        Mo.order[(i + Mo.offset) % Mo.order.length],
-        stripX + stripWidth - S.borderX + inset,
-        y,
-        Mo.size,
-        F.colors.motif,
-        Mo.alpha,
-      );
-    }
-  }
-
-  /* ---------------- The event, centred under the photos ---------------- */
+  ctx.fillStyle = F.colors.rule;
+  ctx.fillRect(40, footTop + 22, width - 80, P.ruleHeight);
 
   const name = EVENT.name.toLowerCase();
   const nameSize = fitSize(
@@ -520,13 +529,9 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     Ft.venueGap +
     dateSize;
 
-  // Centred in the space held back for it, so anything the text
-  // didn't use comes back as air above and below.
-  let cursor =
-    photoTop +
-    photosHeight +
-    S.footerGap +
-    Math.round((reservedFooter - blockHeight) / 2);
+  // Centred in what the foot has left under its rule.
+  const blockTop = footTop + 40 + (footHeight - 64 - blockHeight) / 2;
+  let cursor = blockTop;
 
   if (logo) {
     const logoWidth = Math.round(
@@ -591,11 +596,11 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   /* ---------------- Crop marks ---------------- */
 
-  if (P.cropMarks) {
-    const L = P.cropMarkLength;
-    const inset = P.cropMarkInset;
+  if (G.cropMarks) {
+    const L = G.cropMarkLength;
+    const inset = G.cropMarkInset;
     ctx.strokeStyle = F.colors.cropMark;
-    ctx.lineWidth = P.cropMarkWidth;
+    ctx.lineWidth = G.cropMarkWidth;
     ctx.lineCap = "square";
 
     const corners: [number, number, number, number][] = [

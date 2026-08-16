@@ -58,22 +58,40 @@ export default function Cabinet({
       <Screw turn={-8} className="absolute right-2.5 bottom-2.5 z-20" />
 
       {/* ---------- Hood: lens, flash, speakers ---------- */}
-      <div className="pt-safe shrink-0 px-6">
-        <div className="flex items-center gap-3 pt-3.5">
-          <span className="grille h-6 flex-1" aria-hidden="true" />
+      <div className="pt-safe shrink-0 px-6 lg:px-10">
+        <div className="flex items-center gap-3 pt-3.5 lg:gap-6 lg:pt-5">
+          <span className="grille h-6 flex-1 lg:h-9" aria-hidden="true" />
 
-          <span className="lens block size-9 shrink-0" aria-hidden="true" />
+          {/* On a kiosk the mark sits up on the hood beside the lens,
+              where it would be silkscreened on a real cabinet. */}
+          <BrandMark
+            height={20}
+            className="hidden opacity-80 lg:block"
+          />
 
           <span
-            className={`bulb block h-3.5 w-7 shrink-0 ${flash ? "bulb-on" : ""}`}
+            className="lens block size-9 shrink-0 lg:size-14"
             aria-hidden="true"
           />
 
-          <span className="grille h-6 flex-1" aria-hidden="true" />
+          <span
+            className={`bulb block h-3.5 w-7 shrink-0 lg:h-5 lg:w-11 ${flash ? "bulb-on" : ""}`}
+            aria-hidden="true"
+          />
+
+          <div className="hidden items-center gap-2 lg:flex" aria-hidden="true">
+            <span className={`lamp ${status ? "lamp-on animate-blink" : ""}`} />
+            <span className="t-label text-[9px] text-paper/45">
+              {status ?? MACHINE.model}
+            </span>
+          </div>
+
+          <span className="grille h-6 flex-1 lg:h-9" aria-hidden="true" />
         </div>
 
-        {/* ---------- Name plate ---------- */}
-        <div className="flex items-center justify-between gap-3 pt-2.5 pb-3">
+        {/* ---------- Name plate (phone only; the kiosk carries it
+             on the hood row above) ---------- */}
+        <div className="flex items-center justify-between gap-3 pt-2.5 pb-3 lg:hidden">
           <BrandMark height={15} className="opacity-80" />
 
           <div className="flex items-center gap-2">
@@ -89,15 +107,17 @@ export default function Cabinet({
       </div>
 
       {/* ---------- Screen ---------- */}
-      <div className="min-h-0 flex-1 px-3">
-        <div className="bezel h-full">
+      <div className="min-h-0 flex-1 px-3 lg:px-10 lg:pt-5">
+        <div className="bezel mx-auto h-full lg:max-w-[min(100%,110rem)]">
           <div className="tube">{children}</div>
         </div>
       </div>
 
       {/* ---------- Deck ---------- */}
-      <div className="pb-safe shrink-0 px-4">
-        {deck && <div className="pt-3.5">{deck}</div>}
+      <div className="pb-safe shrink-0 px-4 lg:px-10">
+        {deck && (
+          <div className="mx-auto pt-3.5 lg:max-w-[68rem] lg:pt-5">{deck}</div>
+        )}
 
         {/* Lamps on the left, the spec plate on the right. */}
         <div

@@ -51,10 +51,11 @@ app/
 components/
   Cabinet.tsx             The booth: hood, bezel, tube, deck, base
   Control.tsx             A key on the deck. `lit` marks the one that glows
+  Selector.tsx            A bank of switches: the timer, the flash
   SegmentDigit.tsx        One seven-segment numeral
   Countdown.tsx           The segment display + its draining gauge
   BrandMark.tsx           Logo with typographic fallback
-  MicMark.tsx             The mic, as halftone SVG
+  Drawing.tsx             One of the strip's illustrations, as SVG
   Backdrop.tsx            The room: dot field and grain
   Marquee.tsx             Endless tracked-caps ticker
   RiseText.tsx            Display type revealed letter by letter
@@ -67,9 +68,8 @@ lib/
     frame.ts              All poster geometry and colours
   camera.ts               useCamera hook: permissions, errors, device switching
   capture.ts              Video frame → filtered JPEG
-  compose.ts              Three photos → branded 9:16 story (Canvas)
-  mic.ts                  Mic geometry, for the halftone SVG
-  motifs.ts               The marks that run down the strip's borders
+  compose.ts              Three photos → the 9:16 strip (Canvas)
+  illustrations.ts        The drawings and the cable, as path data
   filters.ts              The 14 filters
   washes.ts               A colour layer, described once, rendered as CSS or canvas
   grain.ts                One noise tile, shared by the preview and the capture
@@ -85,39 +85,50 @@ and the layout in `compose.ts` computes itself from those values.
 **When changing the poster's appearance, change the config, not `compose.ts`.**
 Only touch `compose.ts` when adding a genuinely new element to the design.
 
-## The exported poster
+## The exported strip
 
-The export is **9:16, 1080 × 1920** — a full Instagram story, edge to edge, no
-letterboxing.
+The export is **9:16, 1080 × 1920, and the whole of it is the strip.** Not a
+story with a strip sitting on it: the trim of the image is the trim of the
+print, the borders either side of the photos are the strip's own borders, and
+the artwork in them runs to the edge.
 
-On it sits one thing: an actual photobooth strip. Three photos in a column,
-generous borders, and the event set out underneath them — mark, name, venue,
-date, centred, the way a real booth prints it.
+That distinction is the whole design. If you ever find yourself drawing a
+background and then placing a smaller strip on it, stop.
 
-- the **side borders** carry small music-and-art motifs from `lib/motifs.ts`
-- the **top border** carries a small tracked cap line
-- the **margins** either side of the strip run a repeating ticker, so the space
-  around it is doing something
-- the event block is **reserved at full size** before the photos are measured —
-  two venue lines, everything at its configured size. Text only ever shrinks
-  from there, so the block can never grow into the pictures, and whatever it
-  doesn't use comes back as air around it.
+    head    a camera going off, RAAHE.CO, a pink rule
+    photos  three of them, full width bar the borders
+    borders the cable, and three drawings down each side
+    foot    a rule, then mark, name, venue, date, centred
+
+**The photos are 16:9 because of arithmetic, not taste.** Three photos across
+the full width of a 1080 × 1920 strip, with room left at the head and the foot,
+only fits at about that shape — squares would need 2760px of height and there
+are 1920. `FRAME.poster.border` is the dial: widen it for a richer border,
+narrow it for bigger photos.
 
 ## Illustrations
 
-Two families, both our own drawings, both stated once as SVG path data and
-painted onto canvas through `Path2D`:
+`lib/illustrations.ts` holds the artwork, authored as SVG path data and painted
+through `Path2D` — so the same drawings serve the print and the screen.
 
-- `lib/motifs.ts` — the small marks in the strip's borders. Chunky and solid;
-  they have to hold up at 30px. `FRAME.motifs.order` sets the cycle, and the
-  right-hand column runs `offset` steps further through it so the two sides
-  never mirror.
-- `lib/mic.ts` — the vintage broadcast mic, echoing the mic on the event
-  posters. `components/MicMark.tsx` renders it as a halftone behind the hero on
-  the landing page. `MIC_SLOTS` punches the grille out of the head; without
-  those slots it's just a lozenge.
+**These are drawings, not icons, and the difference is the point.** Three things
+keep them on the right side of that line:
 
-Neither is traced from the illustrations in the Raahe brand guide, and that
+- **Line first.** Nearly every part is a stroke, not a fill. A stroke with a
+  round cap reads as a hand; a filled shape reads as a symbol.
+- **Wobble.** The outlines are gently curved rather than straight — a rectangle
+  drawn with four `C` segments that drift a pixel or two looks drawn, and the
+  same rectangle drawn with `L` looks printed by a machine.
+- **Hatching.** A few parallel strokes for shade, the way a screen print does it.
+
+`paintCable` draws the lead that ties a border's drawings together, so they read
+as a scene rather than a column of objects.
+
+**You can look at them.** Node runs the TypeScript directly, so the real path
+data can be dumped to JSON and rasterised — that's how the hand got drawn. Don't
+author illustrations blind; render them and look.
+
+None of it is traced from the illustrations in the Raahe brand guide, and that
 distinction matters — see the hard constraints above.
 
 ## The machine
@@ -136,10 +147,18 @@ the machine around it. `lean` trims the base to its slot where the screen needs
 the height. `flash` fires the bulb on the hood, so the machine reacts when a
 photo is taken. `status` is the two or three words on the name plate.
 
-On a phone the casing runs to all four edges and the screen is most of what you
-see. Above 34rem the whole object pulls in, gains its corner radius and its
-outer shadow, and sits in the room. The composition is the same either way — it
-is not two designs.
+There are **three sizes, and two of them are compositions**, not scalings:
+
+- **phone** — the casing runs to all four edges, the screen is most of what you
+  see, controls stack.
+- **≥34rem** — the whole object pulls in, gains its corner radius and its outer
+  shadow, and sits in the room.
+- **≥64rem, kiosk** — the casing goes back to the trim and takes the entire
+  viewport. The hood spreads out and carries the mark and the name plate beside
+  the lens; the deck lays its controls out in a row; the stages split into two
+  columns (type beside the drawing on the idle screen, strip beside the type on
+  the result). Reach for the `lg:` classes in `Cabinet.tsx` and the screens —
+  never make the phone layout bigger and call it desktop.
 
 Its markings live in `MACHINE` in `lib/config/event.ts`, not in the component.
 
@@ -247,8 +266,10 @@ meaning in movement alone.
 ## Gotchas
 
 **`cellAspect` has two homes.** If you change `FRAME.cellAspect` in
-`lib/config/frame.ts`, you must also change `aspect-ratio` in the `.preview-box`
-rule in `app/globals.css`, or the camera preview stops matching the output.
+`lib/config/frame.ts` — it's 16:9 — you must also change `aspect-ratio` in the
+`.preview-box` rule in `app/globals.css`, or the camera preview stops matching
+the output. `.preview-box` also multiplies by the aspect in its `width` calc,
+so that needs changing too.
 
 **A filter is described once and rendered twice.** Each entry in `filters.ts` is
 a CSS filter string (`css`), a list of colour layers (`washes`) and a grain
@@ -260,10 +281,10 @@ amount. The washes are turned into CSS by `washStyle()` and into canvas paints b
 Add a filter by adding an entry. Add a *kind* of layer and you must extend both
 renderers in `washes.ts`, or the preview lies about what people will get.
 
-**Wash geometry only lines up because the frame is square.** The preview box and
-the captured photo share `FRAME.cellAspect`, so a gradient angle or a vignette
-radius lands in the same place on both. Change the aspect and check the washes
-again.
+**Wash geometry only lines up because both frames share one aspect.** The
+preview box and the captured photo are both `FRAME.cellAspect`, so a gradient
+angle or a vignette radius lands in the same place on each. Change the aspect
+and check the washes again.
 
 **`capture.ts` has a manual pixel fallback** for browsers where `ctx.filter`
 doesn't work. It handles brightness, contrast, saturate, grayscale and sepia
@@ -286,6 +307,20 @@ plate looks wrong. Use the `drawText` and `measure` helpers, not raw `fillText`.
 **Text auto-shrinks and wraps to fit.** `fitSize` steps the event name, venue and
 date down until they fit the column, and `wrapText` breaks them into lines. Don't
 remove either — they're what make the poster reusable for other events.
+
+**The flash is two things, and only one of them always works.** The screen flash
+is a white overlay and is guaranteed. The camera's own lamp is an optional
+constraint on the live track: `useCamera` asks the track whether it has one —
+freshly on every open, because a phone's front camera usually hasn't even when
+its back camera has — and `setTorch` resolves to what actually happened. Never
+show the lamp as available without asking, and never let its absence break a
+shoot. It's lit one second before the shutter, because a lamp takes a moment to
+come up to brightness.
+
+**The timer is 3, 5 or 10 seconds and lives in a ref.** The countdown effect
+reads `timerRef`, not the state, so changing the switch mid-shoot can't restart
+the run. Ten needs two digits — `Countdown` splits the number, so don't assume
+one.
 
 **The camera can be flipped at any point, including mid-countdown.** That tears
 the stream down and builds a new one, so for a moment there is no frame to grab.

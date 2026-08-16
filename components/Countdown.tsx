@@ -21,14 +21,22 @@ export default function Countdown({
   /** Which photo this is. */
   shot: number;
 }) {
+  // Ten needs two digits, and the pair has to stay the same size as
+  // the single so the display doesn't jump on the last second.
+  const digits = String(n).split("");
+
   return (
     <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-      <div className="flex w-[52%] max-w-[220px] flex-col items-center">
-        <SegmentDigit
-          key={n}
-          value={String(n)}
-          className="h-auto w-[46%] max-w-[100px]"
-        />
+      <div className="flex w-[52%] max-w-[240px] flex-col items-center">
+        <span className="flex items-end justify-center gap-2">
+          {digits.map((digit, index) => (
+            <SegmentDigit
+              key={`${n}-${index}`}
+              value={digit}
+              className="h-auto w-[46px] shrink-0 sm:w-[58px] lg:w-[76px]"
+            />
+          ))}
+        </span>
 
         {/* The gauge. */}
         <span

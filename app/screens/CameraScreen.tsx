@@ -6,13 +6,26 @@ import Control from "@/components/Control";
 import Countdown from "@/components/Countdown";
 import FilterLayers from "@/components/FilterLayers";
 import FilterRail from "@/components/FilterRail";
+import Selector from "@/components/Selector";
 import StripProgress from "@/components/StripProgress";
 import { captureFrame } from "@/lib/capture";
 import { CAMERA_MESSAGES, useCamera } from "@/lib/camera";
 import { DEFAULT_FILTER_ID, getFilter } from "@/lib/filters";
 
 const TOTAL_SHOTS = 3;
-const COUNT_FROM = 5;
+
+/** What the timer switch offers, and where it starts. */
+const TIMERS = [
+  { value: 5, label: "5s" },
+  { value: 3, label: "3s" },
+  { value: 10, label: "10s" },
+] as const;
+const DEFAULT_TIMER = 5;
+
+const FLASH_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+] as const;
 
 /** Size of the still used to draw the filter keys. */
 const SAMPLE_SIZE = 96;
@@ -50,11 +63,23 @@ export default function CameraScreen({
   onComplete: (photos: string[]) => void;
   onExit: () => void;
 }) {
-  const { videoRef, status, problem, mirrored, canFlip, open, stop, flip } =
-    useCamera();
+  const {
+    videoRef,
+    status,
+    problem,
+    mirrored,
+    canFlip,
+    hasTorch,
+    open,
+    stop,
+    flip,
+    setTorch,
+  } = useCamera();
 
   const [gate, setGate] = useState<"checking" | "ask" | "open">("checking");
   const [filterId, setFilterId] = useState(DEFAULT_FILTER_ID);
+  const [timer, setTimer] = useState<number>(DEFAULT_TIMER);
+  const [flashOn, setFlashOn] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>({ kind: "ready" });
   const [flash, setFlash] = useState(false);
@@ -70,6 +95,8 @@ export default function CameraScreen({
   const mirroredRef = useRef(mirrored);
   const phaseRef = useRef(phase);
   const takenRef = useRef<Set<number>>(new Set());
+  const timerRef = useRef(timer);
+  const torchRef = useRef(false);
 
   // Declared before the countdown effect so the refs are fresh by the
   // time it reads them.
@@ -77,6 +104,10 @@ export default function CameraScreen({
     filterRef.current = filter;
     mirroredRef.current = mirrored;
     phaseRef.current = phase;
+    timerRef.current = timer;
+    // Only worth trying if the switch is on *and* this camera has a
+    // light. On everything else the screen does the work.
+    torchRef.current = flashOn && hasTorch;
   });
 
   /* ---------------- Permission ---------------- */
@@ -160,19 +191,23 @@ export default function CameraScreen({
     setNotice(null);
     setPhotos([]);
     setFlash(false);
-    setPhase({ kind: "counting", shot: 0, n: COUNT_FROM });
+    setPhase({ kind: "counting", shot: 0, n: timerRef.current });
   }, []);
 
   useEffect(() => {
     if (phase.kind === "counting") {
-      const timer = setTimeout(() => {
+      // One to go: light the camera's own lamp, if it has one and
+      // the switch is on. It needs a moment to come up to brightness.
+      if (phase.n === 1 && torchRef.current) void setTorch(true);
+
+      const tick = setTimeout(() => {
         setPhase(
           phase.n > 1
             ? { kind: "counting", shot: phase.shot, n: phase.n - 1 }
             : { kind: "capture", shot: phase.shot },
         );
       }, 1000);
-      return () => clearTimeout(timer);
+      return () => clearTimeout(tick);
     }
 
     if (phase.kind === "capture") {
@@ -200,6 +235,9 @@ export default function CameraScreen({
         setFlash(true);
         if (shot) setPhotos((previous) => [...previous, shot]);
 
+        // The lamp goes out whether it ever came on or not.
+        void setTorch(false);
+
         timers.push(setTimeout(() => setFlash(false), 380));
         timers.push(
           setTimeout(() => {
@@ -218,13 +256,14 @@ export default function CameraScreen({
     }
 
     if (phase.kind === "between") {
-      const timer = setTimeout(
-        () => setPhase({ kind: "counting", shot: phase.shot, n: COUNT_FROM }),
+      const wait = setTimeout(
+        () =>
+          setPhase({ kind: "counting", shot: phase.shot, n: timerRef.current }),
         1200,
       );
-      return () => clearTimeout(timer);
+      return () => clearTimeout(wait);
     }
-  }, [phase, videoRef]);
+  }, [phase, videoRef, setTorch]);
 
   // Hand the finished strip over.
   useEffect(() => {
@@ -289,21 +328,51 @@ export default function CameraScreen({
             </p>
           )}
 
-          {running ? (
-            <Control onClick={resetSession} note="Cancel the run" height={58}>
-              Stop
-            </Control>
-          ) : (
-            <Control
-              lit
-              onClick={start}
-              disabled={status !== "ready"}
-              note={`3 shots · ${COUNT_FROM}s`}
-              height={58}
-            >
-              Start
-            </Control>
-          )}
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:gap-5">
+            <div className="flex gap-2.5 lg:flex-1">
+              <div className="flex-1 lg:max-w-[15rem]">
+                <Selector
+                  label="Timer"
+                  options={TIMERS}
+                  value={timer}
+                  onChange={setTimer}
+                  disabled={running}
+                />
+              </div>
+              <div className="flex-1 lg:max-w-[12rem]">
+                <Selector
+                  label="Flash"
+                  options={FLASH_OPTIONS}
+                  value={flashOn ? "on" : "off"}
+                  onChange={(next) => setFlashOn(next === "on")}
+                  disabled={running}
+                  note={hasTorch ? "Lamp" : "Screen"}
+                />
+              </div>
+            </div>
+
+            <div className="lg:w-[22rem]">
+              {running ? (
+                <Control
+                  onClick={resetSession}
+                  note="Cancel the run"
+                  height={58}
+                >
+                  Stop
+                </Control>
+              ) : (
+                <Control
+                  lit
+                  onClick={start}
+                  disabled={status !== "ready"}
+                  note={`3 shots · ${timer}s`}
+                  height={58}
+                >
+                  Start
+                </Control>
+              )}
+            </div>
+          </div>
         </>
       }
     >
@@ -382,7 +451,7 @@ export default function CameraScreen({
                   aria-hidden="true"
                   className="animate-fade pointer-events-none absolute inset-0 bg-ink/45"
                 />
-                <Countdown n={phase.n} seconds={COUNT_FROM} shot={phase.shot} />
+                <Countdown n={phase.n} seconds={timer} shot={phase.shot} />
               </>
             )}
 

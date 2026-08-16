@@ -175,6 +175,24 @@ button {
   }
 }
 
+/*
+ * At kiosk size the booth stops being an object in a room and
+ * becomes the room: it takes the whole viewport, edge to edge, with
+ * no browser showing round it. This is a different composition, not
+ * the phone one scaled up — see the `lg:` classes in Cabinet.
+ */
+@media (min-width: 64rem) {
+  .app-stage {
+    padding: 0;
+  }
+
+  .app-frame {
+    max-width: none;
+    width: 100%;
+    height: 100svh;
+  }
+}
+
 .gutter {
   padding-inline: var(--gutter);
 }
@@ -257,6 +275,25 @@ button {
       inset 2px 0 0 rgba(255, 255, 255, 0.03),
       inset -2px 0 0 rgba(0, 0, 0, 0.45),
       0 40px 90px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Kiosk: the casing runs to the trim again, like it does on a phone. */
+@media (min-width: 64rem) {
+  .machine {
+    border-radius: 0;
+    box-shadow:
+      inset 0 1px 0 var(--edge-light),
+      inset 0 -2px 0 var(--edge-dark);
+  }
+
+  .bezel {
+    border-radius: 34px;
+    padding: 14px;
+  }
+
+  .tube {
+    border-radius: 22px;
   }
 }
 
@@ -970,14 +1007,15 @@ button {
    FRAME.cellAspect.
    ------------------------------------------------------------ */
 .preview-box {
-  aspect-ratio: 1;
+  /* Must match FRAME.cellAspect, or the preview shows a different
+     crop from the one the shutter takes. */
+  aspect-ratio: 16 / 9;
   /*
-   * 26.5rem is everything else on the camera stage added up: the
-   * hood (87), the bezel (18), the deck (141), the HUD (60) and the
-   * filter bank (108). If you add a row to any of those, add it
-   * here too — otherwise the square grows past the space left for
-   * it and the tube clips the bottom off the preview.
+   * 26rem is everything else on the camera stage added up: hood,
+   * bezel, deck, HUD and filter bank. The frame is landscape now, so
+   * on a phone the width runs out long before the height does and
+   * this only binds on very short screens.
    */
-  width: min(100%, calc(100svh - 26.5rem));
+  width: min(100%, calc((100svh - 26rem) * 16 / 9));
   margin-inline: auto;
 }
