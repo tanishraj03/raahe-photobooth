@@ -380,7 +380,7 @@ export default function CameraScreen({
           actually captures in the middle, the filter bank below. */}
       <div className="flex h-full flex-col">
         {/* ---------- HUD ---------- */}
-        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-2.5 pb-1.5">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-2 pb-1">
           <button
             type="button"
             onClick={() => {
@@ -388,7 +388,7 @@ export default function CameraScreen({
               onExit();
             }}
             aria-label="Leave the photobooth"
-            className="grid size-8 place-items-center rounded-full text-paper/50 transition-colors active:text-paper"
+            className="grid size-7 place-items-center rounded-full text-paper/50 transition-colors active:text-paper"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -412,7 +412,7 @@ export default function CameraScreen({
         </div>
 
         {/* ---------- Live preview ---------- */}
-        <main className="grid min-h-0 flex-1 place-items-center px-3">
+        <main className="grid min-h-0 flex-1 place-items-center px-2.5">
           <div className="preview-box relative isolate overflow-hidden rounded-lg bg-black">
             <video
               ref={videoRef}
@@ -588,7 +588,7 @@ export default function CameraScreen({
         </main>
 
         {/* ---------- Filter bank ---------- */}
-        <div className="shrink-0 pt-1.5">
+        <div className="shrink-0 pt-1">
           <FilterRail
             activeId={filterId}
             onSelect={setFilterId}

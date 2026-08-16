@@ -39,16 +39,17 @@ export const FRAME = {
   /**
    * Width divided by height of a single photo.
    *
-   * 16/9 is not a style choice, it's arithmetic: three photos across
-   * the full width of a 1080 × 1920 strip, with room left over at
-   * the head and the foot, only fits at about this shape. Squares
-   * would need 2760px of height and there are 1920.
+   * Square. It's the shape that serves both ends: a square preview
+   * fills the width of a phone and gives someone room to stand in
+   * the frame, and three squares stack into the strip with the head
+   * and the foot still fitting. The borders are what's left over,
+   * and at 310px they're wide enough for the drawings to be drawings.
    *
    * If you change this, change `aspect-ratio` in the .preview-box
    * rule in app/globals.css to match, or the camera will show a
    * different crop from the one it takes.
    */
-  cellAspect: 16 / 9,
+  cellAspect: 1,
 
   /** Pixel width each photo is captured at, before it's placed. */
   photoWidth: 1280,
@@ -71,14 +72,14 @@ export const FRAME = {
      * — wide enough for a drawing to be a drawing rather than a
      * mark, and no wider.
      */
-    border: 150,
+    border: 310,
     /** Space between photos. */
-    photoGap: 22,
+    photoGap: 26,
     /**
      * How the space left over above and below the photos is split.
      * The foot carries four lines of type, so it gets more.
      */
-    headShare: 0.34,
+    headShare: 0.28,
     /** Corner rounding on each photo. Real booths print them square. */
     photoRadius: 5,
     /** A hairline drawn tight around each photo. */
@@ -119,17 +120,17 @@ export const FRAME = {
      * narrow lane instead of shrinking to nothing in it.
      */
     leftBorder: [
-      { name: "micStand", height: 262 },
-      { name: "cassette", height: 206, turn: -90 },
-      { name: "jackPlug", height: 226 },
+      { name: "micStand", height: 320 },
+      { name: "cassette", height: 250, turn: -90 },
+      { name: "jackPlug", height: 275 },
     ],
     rightBorder: [
-      { name: "speakerCab", height: 214 },
-      { name: "handButton", height: 196, turn: 90 },
-      { name: "headphones", height: 176 },
+      { name: "speakerCab", height: 260 },
+      { name: "handButton", height: 240, turn: 90 },
+      { name: "headphones", height: 215 },
     ],
     /** In the head, beside the cap line. */
-    head: { name: "flashCam", height: 126 },
+    head: { name: "flashCam", height: 150 },
   },
 
   /* ---------------- The head ---------------- */

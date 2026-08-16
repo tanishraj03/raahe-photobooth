@@ -18,9 +18,9 @@ export default function StripProgress({
   return (
     <div className="relative flex items-center justify-center" aria-hidden="true">
       {/* The rail the frames sit on. */}
-      <span className="absolute h-px w-40 bg-hairline" />
+      <span className="absolute h-px w-36 bg-hairline" />
 
-      <div className="relative flex items-center gap-3">
+      <div className="relative flex items-center gap-2.5">
         {Array.from({ length: total }, (_, i) => {
           const shot = photos[i];
           const isNext = !shot && i === activeIndex;
@@ -28,7 +28,7 @@ export default function StripProgress({
           return (
             <span key={i} className="relative block">
               <span
-                className={`block size-11 overflow-hidden rounded-lg border bg-ink transition-colors duration-300 ${
+                className={`block size-9 overflow-hidden rounded-lg border bg-ink transition-colors duration-300 ${
                   shot
                     ? "border-pink"
                     : isNext

@@ -58,9 +58,9 @@ export default function Cabinet({
       <Screw turn={-8} className="absolute right-2.5 bottom-2.5 z-20" />
 
       {/* ---------- Hood: lens, flash, speakers ---------- */}
-      <div className="pt-safe shrink-0 px-6 lg:px-10">
-        <div className="flex items-center gap-3 pt-3.5 lg:gap-6 lg:pt-5">
-          <span className="grille h-6 flex-1 lg:h-9" aria-hidden="true" />
+      <div className="pt-safe shrink-0 px-5 lg:px-8">
+        <div className="flex items-center gap-3 pt-2.5 lg:gap-6 lg:pt-4">
+          <span className="grille h-5 flex-1 lg:h-8" aria-hidden="true" />
 
           {/* On a kiosk the mark sits up on the hood beside the lens,
               where it would be silkscreened on a real cabinet. */}
@@ -70,12 +70,12 @@ export default function Cabinet({
           />
 
           <span
-            className="lens block size-9 shrink-0 lg:size-14"
+            className="lens block size-8 shrink-0 lg:size-12"
             aria-hidden="true"
           />
 
           <span
-            className={`bulb block h-3.5 w-7 shrink-0 lg:h-5 lg:w-11 ${flash ? "bulb-on" : ""}`}
+            className={`bulb block h-3 w-6 shrink-0 lg:h-4 lg:w-9 ${flash ? "bulb-on" : ""}`}
             aria-hidden="true"
           />
 
@@ -86,12 +86,12 @@ export default function Cabinet({
             </span>
           </div>
 
-          <span className="grille h-6 flex-1 lg:h-9" aria-hidden="true" />
+          <span className="grille h-5 flex-1 lg:h-8" aria-hidden="true" />
         </div>
 
         {/* ---------- Name plate (phone only; the kiosk carries it
              on the hood row above) ---------- */}
-        <div className="flex items-center justify-between gap-3 pt-2.5 pb-3 lg:hidden">
+        <div className="flex items-center justify-between gap-3 pt-2 pb-2.5 lg:hidden">
           <BrandMark height={15} className="opacity-80" />
 
           <div className="flex items-center gap-2">
@@ -107,21 +107,21 @@ export default function Cabinet({
       </div>
 
       {/* ---------- Screen ---------- */}
-      <div className="min-h-0 flex-1 px-3 lg:px-10 lg:pt-5">
-        <div className="bezel mx-auto h-full lg:max-w-[min(100%,110rem)]">
+      <div className="min-h-0 flex-1 px-2.5 lg:px-8 lg:pt-4">
+        <div className="bezel mx-auto h-full">
           <div className="tube">{children}</div>
         </div>
       </div>
 
       {/* ---------- Deck ---------- */}
-      <div className="pb-safe shrink-0 px-4 lg:px-10">
+      <div className="pb-safe shrink-0 px-4 lg:px-8">
         {deck && (
-          <div className="mx-auto pt-3.5 lg:max-w-[68rem] lg:pt-5">{deck}</div>
+          <div className="mx-auto pt-3 lg:pt-4">{deck}</div>
         )}
 
         {/* Lamps on the left, the spec plate on the right. */}
         <div
-          className="flex items-end justify-between gap-3 pt-3"
+          className="flex items-end justify-between gap-3 pt-2.5"
           aria-hidden="true"
         >
           <div className="flex items-center gap-1.5">
@@ -141,7 +141,7 @@ export default function Cabinet({
         </div>
 
         {/* ---------- Base: the slot the strip comes out of ---------- */}
-        <div className="pt-3 pb-3">
+        <div className="pt-2.5 pb-2.5">
           <div className="slot" aria-hidden="true" />
 
           {!lean && (

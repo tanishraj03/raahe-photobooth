@@ -147,18 +147,17 @@ the machine around it. `lean` trims the base to its slot where the screen needs
 the height. `flash` fires the bulb on the hood, so the machine reacts when a
 photo is taken. `status` is the two or three words on the name plate.
 
-There are **three sizes, and two of them are compositions**, not scalings:
+**It is the same object at every size**, and that's the point — see
+**Proportion** below for how its width is derived. Three bands, all one
+composition:
 
-- **phone** — the casing runs to all four edges, the screen is most of what you
-  see, controls stack.
-- **≥34rem** — the whole object pulls in, gains its corner radius and its outer
-  shadow, and sits in the room.
-- **≥64rem, kiosk** — the casing goes back to the trim and takes the entire
-  viewport. The hood spreads out and carries the mark and the name plate beside
-  the lens; the deck lays its controls out in a row; the stages split into two
-  columns (type beside the drawing on the idle screen, strip beside the type on
-  the result). Reach for the `lg:` classes in `Cabinet.tsx` and the screens —
-  never make the phone layout bigger and call it desktop.
+- **phone** — the casing runs to all four edges and the screen is most of what
+  you see.
+- **≥34rem** — the object pulls in, gains its corner radius and its outer
+  shadow, and stands in the room.
+- **≥64rem** — same object, taller, with the hood carrying the mark and the name
+  plate beside the lens and the deck laying its controls out in a row. Reach for
+  the `lg:` classes in `Cabinet.tsx` and the screens.
 
 Its markings live in `MACHINE` in `lib/config/event.ts`, not in the component.
 
@@ -194,10 +193,38 @@ of the tube with the HUD above it and the filter bank below, letterboxed against
 the glass. Don't be tempted to make the video fill the tube — the preview would
 then show more than the square that gets captured, and it would be lying.
 
-**`.preview-box` reserves a fixed height for all of that.** The 26.5rem in
-`globals.css` is the hood, bezel, deck, HUD and filter bank added up. Add a row
-to any of them and add it there too, or the square grows past the space left for
-it and the tube clips the bottom off the preview.
+**`.preview-box` gets its size from `--machine-chrome`.** See **Proportion**.
+
+## Proportion
+
+This is where the layout goes wrong if it goes wrong, so it's worth stating.
+
+**The machine's height is the viewport. Its width is worked back from its
+screen.** The preview inside the tube is square, so the casing only ever needs
+to be that square plus its own sides — which is what stops the tube stretching
+into a letterbox on a monitor while the picture sits small in the middle of it.
+Two custom properties carry it, both in `globals.css`:
+
+    --machine-chrome   everything above and below the preview
+    --machine-sides    everything either side of it
+
+`.app-frame` sets its `max-width` from those, and `.preview-box` sets its width
+from the same `--machine-chrome`, so the two can't drift. **Add a row to the
+hood, the deck, the HUD or the filter bank and add its height to
+`--machine-chrome` too**, or the square grows past its space and the tube clips
+the bottom off it.
+
+A floor — `max(46rem, …)` — keeps the machine from going gaunt on a short, wide
+monitor, at the cost of a little empty glass either side of the preview there.
+
+**Never fix a proportion with `transform: scale()` on the interface.** Every
+size here comes from `min()`, `max()`, `clamp()`, `aspect-ratio` and viewport
+units, and it should stay that way.
+
+**There is one composition, not two.** The machine is a portrait object at every
+size; it gets bigger, never wider. Stages that split into two columns don't fit
+inside it and were removed. Sizes were checked at 375×812 through 1920×1080 — if
+you change a chrome height, check them again.
 
 ## Typography
 

@@ -12,9 +12,9 @@ import { CREDITS, EVENT } from "@/lib/config/event";
  * screen is its attract mode; the one lit key on the deck is the
  * only thing to do.
  *
- * On a phone the type stacks and the drawing sits behind it. On a
- * kiosk they separate into two columns and the drawing is a proper
- * illustration at proper size — not the phone layout blown up.
+ * One composition at every size: the type stacked, the drawing
+ * behind it. The machine keeps its proportions as it grows, so the
+ * stage inside it does too — it gets bigger, never wider.
  */
 export default function HomeScreen({ onStart }: { onStart: () => void }) {
   return (
@@ -51,14 +51,14 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
       }
     >
       <div className="relative flex h-full flex-col overflow-hidden">
-        {/* On a phone the mic sits behind the type. */}
+        {/* The mic, behind the type. */}
         <div
           aria-hidden="true"
-          className="animate-fade pointer-events-none absolute inset-y-0 right-[-3rem] z-0 flex items-center lg:hidden"
+          className="animate-fade pointer-events-none absolute inset-y-0 right-[-3rem] z-0 flex items-center"
         >
           <Drawing
             name="micStand"
-            className="animate-float h-[80%] w-auto"
+            className="animate-float h-[78%] w-auto lg:h-[72%]"
             inks={{
               pink: "rgba(240,78,152,0.34)",
               paper: "rgba(244,245,245,0.16)",
@@ -67,8 +67,8 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
           />
         </div>
 
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-center px-5 py-4 lg:flex-row lg:items-center lg:gap-16 lg:px-16">
-          <div className="lg:flex-1">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-center px-5 py-4 lg:px-10 lg:py-8">
+          <div>
             <p className="t-label animate-rise delay-2 flex items-center gap-2.5 text-pink lg:text-[13px]">
               <span aria-hidden="true" className="lamp lamp-on animate-blink" />
               {EVENT.eyebrow}
@@ -102,22 +102,6 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
             </div>
           </div>
 
-          {/* On a kiosk it's a drawing in its own right, at size. */}
-          <div
-            aria-hidden="true"
-            className="hidden lg:flex lg:h-full lg:max-h-[38rem] lg:flex-1 lg:items-center lg:justify-center"
-          >
-            <Drawing
-              name="micStand"
-              glow={26}
-              className="animate-float h-full w-auto"
-              inks={{
-                pink: "rgba(240,78,152,0.85)",
-                paper: "rgba(244,245,245,0.5)",
-                grey: "rgba(244,245,245,0.28)",
-              }}
-            />
-          </div>
         </div>
 
         <Marquee

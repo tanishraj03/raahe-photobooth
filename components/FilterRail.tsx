@@ -42,7 +42,7 @@ export default function FilterRail({
 
   return (
     <div
-      className={`inset mx-2 mb-2 rounded-xl transition-opacity duration-300 ${
+      className={`inset mx-2 mb-1.5 rounded-xl transition-opacity duration-300 ${
         disabled ? "pointer-events-none opacity-40" : ""
       }`}
     >
@@ -50,7 +50,7 @@ export default function FilterRail({
         ref={railRef}
         role="radiogroup"
         aria-label="Photo filter"
-        className="no-scrollbar flex snap-x snap-mandatory gap-1.5 overflow-x-auto p-1.5"
+        className="no-scrollbar flex snap-x snap-mandatory gap-1.5 overflow-x-auto p-1"
       >
         {FILTERS.map((filter, index) => {
           const active = filter.id === activeId;
@@ -65,12 +65,12 @@ export default function FilterRail({
               aria-checked={active}
               disabled={disabled}
               onClick={() => onSelect(filter.id)}
-              className={`relative flex shrink-0 snap-center flex-col items-stretch gap-1 rounded-lg px-1.5 pt-1 pb-1.5 transition-all duration-200 ${
+              className={`relative flex shrink-0 snap-center flex-col items-stretch gap-0.5 rounded-lg px-1.5 pt-1 pb-1 transition-all duration-200 ${
                 active
                   ? "bg-pink/12 ring-1 ring-pink/70"
                   : "ring-1 ring-paper/8 hover:ring-paper/20"
               }`}
-              style={{ width: 62 }}
+              style={{ width: 58 }}
             >
               {/* Number and lamp */}
               <span className="flex items-center justify-between px-px">
@@ -90,7 +90,7 @@ export default function FilterRail({
 
               {/* What it does to your face */}
               <span
-                className="relative block isolate h-11 w-full overflow-hidden rounded-[5px]"
+                className="relative block isolate h-9 w-full overflow-hidden rounded-[5px]"
                 style={{
                   boxShadow: active
                     ? "inset 0 0 0 1px rgba(240,78,152,0.5)"

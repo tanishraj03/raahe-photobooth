@@ -158,7 +158,21 @@ button {
  * instead of the viewport, so the display fills the same proportion
  * of a phone and a laptop.
  */
+/*
+ * PROPORTION
+ * The machine's height is the viewport. Its *width* is worked back
+ * from its screen: however tall the tube ends up, the preview inside
+ * it is square, so the casing only ever needs to be that wide plus
+ * its own sides. That's what stops the tube stretching into a letter
+ * box on a monitor while the picture sits small in the middle of it.
+ *
+ *   --machine-chrome  everything above and below the preview
+ *   --machine-sides   everything either side of it
+ */
 .app-frame {
+  --machine-chrome: 23rem;
+  --machine-sides: 3.5rem;
+
   position: relative;
   width: 100%;
   max-width: var(--app-width);
@@ -169,27 +183,34 @@ button {
   isolation: isolate;
 }
 
-@media (min-width: 34rem) and (min-height: 44rem) {
+/*
+ * Past phone width the booth takes the full height of the viewport
+ * and widens to match — never past what its screen needs, so the
+ * casing keeps the proportions of the same object at every size.
+ * The floor keeps it from going gaunt on a short, wide monitor.
+ */
+@media (min-width: 34rem) {
   .app-frame {
-    height: min(100svh - 3.5rem, 54rem);
+    --machine-chrome: 24.5rem;
+    --machine-sides: 5rem;
+
+    max-width: min(
+      100vw,
+      max(38rem, calc(100svh - var(--machine-chrome) + var(--machine-sides)))
+    );
+    height: 100svh;
   }
 }
 
-/*
- * At kiosk size the booth stops being an object in a room and
- * becomes the room: it takes the whole viewport, edge to edge, with
- * no browser showing round it. This is a different composition, not
- * the phone one scaled up — see the `lg:` classes in Cabinet.
- */
 @media (min-width: 64rem) {
-  .app-stage {
-    padding: 0;
-  }
-
   .app-frame {
-    max-width: none;
-    width: 100%;
-    height: 100svh;
+    --machine-chrome: 27rem;
+    --machine-sides: 7rem;
+
+    max-width: min(
+      100vw,
+      max(46rem, calc(100svh - var(--machine-chrome) + var(--machine-sides)))
+    );
   }
 }
 
@@ -1009,13 +1030,14 @@ button {
 .preview-box {
   /* Must match FRAME.cellAspect, or the preview shows a different
      crop from the one the shutter takes. */
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 1;
   /*
-   * 26rem is everything else on the camera stage added up: hood,
-   * bezel, deck, HUD and filter bank. The frame is landscape now, so
-   * on a phone the width runs out long before the height does and
-   * this only binds on very short screens.
+   * Whichever runs out first decides how big the preview gets: the
+   * width of the tube, or what's left of the viewport once the hood,
+   * bezel, deck, HUD and filter bank have taken theirs. Add a row to
+   * any of those and put it in --machine-chrome too, or the square
+   * grows past its space and the tube clips it.
    */
-  width: min(100%, calc((100svh - 26rem) * 16 / 9));
+  width: min(100%, calc(100svh - var(--machine-chrome)));
   margin-inline: auto;
 }
