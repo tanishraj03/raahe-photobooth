@@ -169,13 +169,23 @@ button {
   isolation: isolate;
 }
 
+@media (min-width: 34rem) and (min-height: 44rem) {
+  .app-frame {
+    height: min(100svh - 3.5rem, 54rem);
+  }
+}
+
 /*
- * Past phone width the booth stops being a column and becomes the
- * room: the whole viewport, edge to edge, with nothing showing round
- * it. That's a different composition, not the phone one scaled up —
- * see the `lg:` classes in the screens.
+ * At kiosk size the booth stops being an object in a room and
+ * becomes the room: it takes the whole viewport, edge to edge, with
+ * no browser showing round it. This is a different composition, not
+ * the phone one scaled up — see the `lg:` classes in Cabinet.
  */
-@media (min-width: 48rem) {
+@media (min-width: 64rem) {
+  .app-stage {
+    padding: 0;
+  }
+
   .app-frame {
     max-width: none;
     width: 100%;
@@ -204,33 +214,29 @@ button {
 }
 
 /* ============================================================
-   THE CAPTURE FRAME
-
-   The camera fills the screen and a frame marks the square that
-   actually gets taken — everything outside it is dimmed, the way a
-   camera app shows you its crop. That's what lets the preview be
-   the size of the screen while still telling the truth about what
-   the shutter will keep.
-   ============================================================ */
-
-.capture-box {
-  position: relative;
-  /* Must match FRAME.cellAspect. */
-  aspect-ratio: 1;
-  width: min(100%, calc(100svh - var(--camera-chrome, 20rem)));
-  margin-inline: auto;
-  border-radius: 10px;
-  /* One element, one shadow: everything outside the frame goes down.
-     Cheaper and cleaner than four overlay divs. */
-  box-shadow: 0 0 0 100vmax rgba(10, 10, 10, 0.62);
-}
-
-/* ============================================================
    MATERIALS
 
-   Restrained on purpose. A hairline, a soft ground and a fine
-   grain — enough to feel made rather than generated, and no more.
+   None of this is a photorealistic render. It's the handful of
+   cues that make a flat panel read as a solid one: a light top
+   edge, a dark bottom edge, a shadow where something is recessed,
+   and a fine grain over everything so no surface is perfectly
+   clean.
    ============================================================ */
+
+/* ---- Painted metal casing ---- */
+.panel {
+  position: relative;
+  background:
+    linear-gradient(
+      180deg,
+      var(--panel-top) 0%,
+      var(--panel-mid) 46%,
+      var(--panel-bot) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 var(--edge-light),
+    inset 0 -1px 0 var(--edge-dark);
+}
 
 /* The grain. Sits over any surface that carries it. */
 .grain::after {
@@ -238,10 +244,276 @@ button {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.045;
+  opacity: 0.055;
   mix-blend-mode: overlay;
   background-size: 160px 160px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The machine itself. */
+.machine {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      var(--panel-top) 0%,
+      var(--panel-mid) 38%,
+      var(--panel-bot) 100%
+    );
+}
+
+@media (min-width: 34rem) and (min-height: 44rem) {
+  .machine {
+    border-radius: 30px;
+    box-shadow:
+      inset 0 1px 0 var(--edge-light),
+      inset 0 -2px 0 var(--edge-dark),
+      inset 2px 0 0 rgba(255, 255, 255, 0.03),
+      inset -2px 0 0 rgba(0, 0, 0, 0.45),
+      0 40px 90px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Kiosk: the casing runs to the trim again, like it does on a phone. */
+@media (min-width: 64rem) {
+  .machine {
+    border-radius: 0;
+    box-shadow:
+      inset 0 1px 0 var(--edge-light),
+      inset 0 -2px 0 var(--edge-dark);
+  }
+
+  .bezel {
+    border-radius: 34px;
+    padding: 14px;
+  }
+
+  .tube {
+    border-radius: 22px;
+  }
+}
+
+/* ---- Recessed panel: anything sunk into the casing ---- */
+.inset {
+  background: #131313;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+/* ---- Screws ---- */
+.screw {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #4d4d4d, #1a1a1a 72%);
+  box-shadow:
+    inset 0 -1px 1px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.screw::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  right: 16%;
+  bottom: 45%;
+  left: 16%;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ---- Perforated speaker grille ---- */
+.grille {
+  border-radius: 4px;
+  background-color: #131313;
+  background-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.9) 1.6px,
+    transparent 1.7px
+  );
+  background-size: 6px 6px;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Ventilation louvres ---- */
+.vents {
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.85) 0px,
+    rgba(0, 0, 0, 0.85) 2px,
+    rgba(255, 255, 255, 0.05) 2px,
+    rgba(255, 255, 255, 0.05) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+}
+
+/* ---- The lens, above the screen ---- */
+.lens {
+  position: relative;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #3d3d3d 0%, #121212 52%, #070707 78%);
+  box-shadow:
+    inset 0 0 0 2px #2b2b2b,
+    inset 0 0 0 5px #101010,
+    inset 0 3px 8px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.lens::after {
+  content: "";
+  position: absolute;
+  top: 22%;
+  left: 22%;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: rgba(240, 78, 152, 0.55);
+  box-shadow: 0 0 10px rgba(240, 78, 152, 0.6);
+}
+
+/* ---- The flash bulb ---- */
+.bulb {
+  border-radius: 3px;
+  background: #232323;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 1px 3px rgba(0, 0, 0, 0.7);
+  transition:
+    background-color 90ms linear,
+    box-shadow 90ms linear;
+}
+
+.bulb-on {
+  background: #fff;
+  box-shadow:
+    0 0 18px rgba(255, 255, 255, 0.9),
+    0 0 40px rgba(240, 78, 152, 0.5);
+}
+
+/* ---- Indicator lamps ---- */
+.lamp {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #333;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.lamp-on {
+  background: var(--color-pink);
+  box-shadow:
+    0 0 9px rgba(240, 78, 152, 0.85),
+    inset 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+/* ---- The print slot the strip comes out of ---- */
+.slot {
+  height: 13px;
+  border-radius: 7px;
+  background: #070707;
+  box-shadow:
+    inset 0 3px 7px rgba(0, 0, 0, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Silkscreened plate ---- */
+.plate {
+  border: 1px solid rgba(244, 245, 245, 0.09);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ============================================================
+   THE SCREEN
+   A tube sunk into the bezel. Content inside stays crisp — the
+   glass effects are all above it and all faint.
+   ============================================================ */
+
+.bezel {
+  position: relative;
+  border-radius: 24px;
+  padding: 9px;
+  background: linear-gradient(180deg, #363636 0%, #242424 34%, #191919 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.85),
+    0 2px 5px rgba(0, 0, 0, 0.6);
+}
+
+.tube {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  height: 100%;
+  border-radius: 16px;
+  background: var(--tube);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 78, 152, 0.3),
+    inset 0 0 50px var(--tube-glow),
+    inset 0 0 90px rgba(0, 0, 0, 0.95),
+    0 0 34px rgba(240, 78, 152, 0.09);
+}
+
+/*
+ * Scanlines and the vignette of a curved tube.
+ *
+ * The flicker lives here, on the overlay, and not on the tube
+ * itself — dimming the tube would dim the camera preview with it,
+ * and a preview that pulses is a preview you don't trust.
+ */
+.tube::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  animation: flicker 7s linear infinite;
+  background:
+    radial-gradient(
+      130% 115% at 50% 45%,
+      transparent 52%,
+      rgba(0, 0, 0, 0.42) 100%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.14) 0px,
+      rgba(0, 0, 0, 0.14) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+/* One soft highlight where the room lands on the glass. */
+.tube::before {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: -14%;
+  z-index: 7;
+  width: 62%;
+  height: 78%;
+  pointer-events: none;
+  border-radius: 50%;
+  opacity: 0.05;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #fff 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
 }
 
 /* ============================================================
@@ -732,18 +1004,18 @@ button {
    CAMERA PREVIEW
    The square the camera actually captures, letterboxed inside
    the tube. Change the aspect-ratio here if you change
-/* ------------------------------------------------------------
-   How much of the height the camera stage's bars take. The capture
-   frame gets everything else, so if you add a row to the bottom
-   bar, add it here too.
+   FRAME.cellAspect.
    ------------------------------------------------------------ */
-.camera-stage {
-  --camera-chrome: 17rem;
+.preview-box {
+  /* Must match FRAME.cellAspect, or the preview shows a different
+     crop from the one the shutter takes. */
+  aspect-ratio: 16 / 9;
+  /*
+   * 26rem is everything else on the camera stage added up: hood,
+   * bezel, deck, HUD and filter bank. The frame is landscape now, so
+   * on a phone the width runs out long before the height does and
+   * this only binds on very short screens.
+   */
+  width: min(100%, calc((100svh - 26rem) * 16 / 9));
+  margin-inline: auto;
 }
-
-@media (min-width: 48rem) {
-  .camera-stage {
-    --camera-chrome: 15rem;
-  }
-}
-

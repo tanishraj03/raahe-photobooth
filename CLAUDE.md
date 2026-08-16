@@ -49,15 +49,17 @@ app/
     CameraScreen.tsx      Permission, countdown, capture sequence
     ResultScreen.tsx      Developing state, poster reveal, save/share
 components/
-  Cabinet.tsx             The shell: a ground, and bars over or around a stage
-  CameraControls.tsx      Shutter, timer, flash — phone-camera logic
-  Control.tsx             A key. `lit` marks the one that glows
+  Cabinet.tsx             The booth: hood, bezel, tube, deck, base
+  Control.tsx             A key on the deck. `lit` marks the one that glows
+  Selector.tsx            A bank of switches: the timer, the flash
   SegmentDigit.tsx        One seven-segment numeral
   Countdown.tsx           The segment display + its draining gauge
   BrandMark.tsx           Logo with typographic fallback
-  Backdrop.tsx            The ground: one fall of tone
+  Drawing.tsx             One of the strip's illustrations, as SVG
+  Backdrop.tsx            The room: dot field and grain
+  Marquee.tsx             Endless tracked-caps ticker
   RiseText.tsx            Display type revealed letter by letter
-  FilterRail.tsx          Filter names in a row, low over the picture
+  FilterRail.tsx          The filter bank: numbered keys, lit when selected
   FilterLayers.tsx        Renders a filter's washes + grain over anything
   StripProgress.tsx       Three cells that fill with real thumbnails
 lib/
@@ -67,6 +69,7 @@ lib/
   camera.ts               useCamera hook: permissions, errors, device switching
   capture.ts              Video frame → filtered JPEG
   compose.ts              Three photos → the 9:16 strip (Canvas)
+  illustrations.ts        The drawings and the cable, as path data
   filters.ts              The 14 filters
   washes.ts               A colour layer, described once, rendered as CSS or canvas
   grain.ts                One noise tile, shared by the preview and the capture
@@ -92,66 +95,109 @@ the artwork in them runs to the edge.
 That distinction is the whole design. If you ever find yourself drawing a
 background and then placing a smaller strip on it, stop.
 
-    head    RAAHE.CO, a hairline
-    photos  three squares, centred
-    borders the event set on its side, and the frame numbers
-    foot    a hairline, then [mark] raahe open mic — one lockup —
-            with the venue and the date under it
+    head    a camera going off, RAAHE.CO, a pink rule
+    photos  three of them, full width bar the borders
+    borders the cable, and three drawings down each side
+    foot    a rule, then mark, name, venue, date, centred
 
-**The mark and the name are one lockup**, set side by side and sized against
-each other. Not a small logo floating above a line of type.
+**The photos are 16:9 because of arithmetic, not taste.** Three photos across
+the full width of a 1080 × 1920 strip, with room left at the head and the foot,
+only fits at about that shape — squares would need 2760px of height and there
+are 1920. `FRAME.poster.border` is the dial: widen it for a richer border,
+narrow it for bigger photos.
 
-**The photos are square**, which is the shape that serves both ends: three of
-them stack into the strip with room to spare, and on a phone a square preview
-fills the width and most of the height. At 500px they're as large as the head
-and the foot allow — if you want them bigger, that height has to come from
-`headShare` or the foot, not from nowhere.
+## Illustrations
 
-## Illustrations — read this before drawing anything
+`lib/illustrations.ts` holds the artwork, authored as SVG path data and painted
+through `Path2D` — so the same drawings serve the print and the screen.
 
-**There are none, and that was a decision.**
+**These are drawings, not icons, and the difference is the point.** Three things
+keep them on the right side of that line:
 
-Three attempts were made to hand-author editorial illustrations as SVG path
-data: small musical objects, then bigger ones with wobbled outlines and
-hatching, then a hand. Every one came out as clip art. Line-art of the density
-the brief asks for — hands working a mixer, a room full of gear, objects
-overlapping — is not something you can write coordinate by coordinate.
+- **Line first.** Nearly every part is a stroke, not a fill. A stroke with a
+  round cap reads as a hand; a filled shape reads as a symbol.
+- **Wobble.** The outlines are gently curved rather than straight — a rectangle
+  drawn with four `C` segments that drift a pixel or two looks drawn, and the
+  same rectangle drawn with `L` looks printed by a machine.
+- **Hatching.** A few parallel strokes for shade, the way a screen print does it.
 
-So the borders carry type and nothing else, and they look better for it. A
-sparse, well-set border beats a border full of small drawn objects at any size.
+`paintCable` draws the lead that ties a border's drawings together, so they read
+as a scene rather than a column of objects.
 
-**If you are tempted to add drawings back, don't hand-author them.**
-`FRAME.art` points at `/public/art/border-left.svg` and `border-right.svg`.
-Drop real commissioned artwork there — line art, transparent, portrait, roughly
-1:4 — and `compose.ts` draws it into the borders automatically, replacing the
-side type. Nothing is drawn if the files aren't there, and the strip is designed
-to look finished without them.
+**You can look at them.** Node runs the TypeScript directly, so the real path
+data can be dumped to JSON and rasterised — that's how the hand got drawn. Don't
+author illustrations blind; render them and look.
 
-## The camera stage
+None of it is traced from the illustrations in the Raahe brand guide, and that
+distinction matters — see the hard constraints above.
 
-The app is a camera first and a photobooth second. On every size the video
-fills the whole stage and the bars float over it — nothing above and below
-squeezing it into a letterbox.
+## The machine
 
-**`.capture-box` is the honest bit.** The square it marks is exactly what the
-shutter keeps; everything outside it is dimmed by that one element's
-`box-shadow`, the way a camera app shows its crop. That's what lets the preview
-be the size of the screen while still telling the truth. Its size comes from
-`--camera-chrome`, which is the top and bottom bars added up — add a row to a
-bar and add it there too.
+The app is a photobooth — a physical object with a screen in it, not a website
+with a camera. `components/Cabinet.tsx` is that object and every stage renders
+inside one:
 
-Controls follow phone-camera logic, not website logic: shutter big and central
-under the thumb, timer and flash small either side of it, filters a row of names
-low over the picture. If a control is growing into a card, it's going the wrong
-way.
+    hood    speaker grilles, the lens, the flash bulb, the name plate
+    bezel   a raised frame with the tube sunk into it
+    deck    the controls, indicator lamps, the unit plate
+    base    the slot the strip prints out of, vents, markings
 
-Two compositions, not one scaled:
+What changes between home, camera and result is what's on the screen — never
+the machine around it. `lean` trims the base to its slot where the screen needs
+the height. `flash` fires the bulb on the hood, so the machine reacts when a
+photo is taken. `status` is the two or three words on the name plate.
 
-- **phone** — one column, bars stacked over the camera.
-- **≥48rem** — the app takes the whole viewport. The camera is the room. The
-  idle and result stages split into two columns; the camera stage stays single
-  because the picture is the point. Reach for the `lg:` classes — never make the
-  phone layout bigger and call it desktop.
+There are **three sizes, and two of them are compositions**, not scalings:
+
+- **phone** — the casing runs to all four edges, the screen is most of what you
+  see, controls stack.
+- **≥34rem** — the whole object pulls in, gains its corner radius and its outer
+  shadow, and sits in the room.
+- **≥64rem, kiosk** — the casing goes back to the trim and takes the entire
+  viewport. The hood spreads out and carries the mark and the name plate beside
+  the lens; the deck lays its controls out in a row; the stages split into two
+  columns (type beside the drawing on the idle screen, strip beside the type on
+  the result). Reach for the `lg:` classes in `Cabinet.tsx` and the screens —
+  never make the phone layout bigger and call it desktop.
+
+Its markings live in `MACHINE` in `lib/config/event.ts`, not in the component.
+
+## Materials
+
+None of this is a photorealistic render. It's the handful of cues in
+`globals.css` that make a flat panel read as a solid one:
+
+| Class | Is |
+|---|---|
+| `.panel` / `.machine` | painted metal, lit from above |
+| `.inset` | anything sunk into the casing |
+| `.bezel` / `.tube` | the frame and the glass |
+| `.control` | a key standing on its own shadow |
+| `.grain` | fine noise over a surface, so nothing is perfectly clean |
+| `.screw` `.grille` `.vents` `.lens` `.bulb` `.lamp` `.slot` `.plate` | the fittings |
+
+The rule behind all of it: **a light top edge, a dark bottom edge, and a shadow
+where something is recessed.** That's what sells an edge. `--key-throw` is how
+far a control travels when pressed, and `.control:active` moves it down by
+exactly the shadow it was standing on — change one and change the other.
+
+Gradients are for material only — the lit face of a panel, the curve of a key.
+Not for decoration.
+
+**Keep the tube's effects off the content.** Scanlines, vignette and flicker all
+live on `.tube::after`, above the screen and faint. The flicker in particular
+must never go on `.tube` itself: that would dim the camera preview with it, and
+a preview that pulses is a preview you don't trust.
+
+On the camera screen the square the camera actually captures sits in the middle
+of the tube with the HUD above it and the filter bank below, letterboxed against
+the glass. Don't be tempted to make the video fill the tube — the preview would
+then show more than the square that gets captured, and it would be lying.
+
+**`.preview-box` reserves a fixed height for all of that.** The 26.5rem in
+`globals.css` is the hood, bezel, deck, HUD and filter bank added up. Add a row
+to any of them and add it there too, or the square grows past the space left for
+it and the tube clips the bottom off the preview.
 
 ## Typography
 
@@ -183,20 +229,18 @@ labels. Two classes in `globals.css` carry this:
 - `.t-label` — 600 weight, UPPERCASE, `+0.16em` tracking, 11px
 - `.t-machine` — 800 weight, UPPERCASE, upright, for the machine's own voice
 
-**Pink is the one light in the room** — the shutter, the active filter, the
-countdown, the date on the print. Everything else is paper, grey and dark. If
-two things on a screen are pink, one of them is wrong.
+The pink is the machine's light: the one lit key, the lamps, the countdown, the
+glow inside the tube. Everything else is painted metal and glass. If a second
+thing on a screen is glowing pink, one of them is wrong.
 
-**Restraint is the brief.** Roughly 80% plain working camera, 20% Raahe. The
-booth reads as a machine through its type, its one accent and what it leaves
-out — not through drawn hardware. An earlier pass had speaker grilles, screws,
-lamps, vents, a tube glow and a scanline overlay; all of it came out, and the
-app is better for it. **Don't fill empty space.** Whitespace is the design.
+See **Materials** above for how the surfaces are built.
 
 ### The app column
 
-Every screen renders inside `.app-frame` in `page.tsx`. On a phone it's one
-column filling the viewport; past 48rem it takes the whole viewport instead.
+Every screen renders inside `.app-frame` in `page.tsx`: one column, `--app-width`
+wide, centred on the `.app-stage`. On a phone the machine fills it. On anything
+larger it is capped in **both** directions, because a phone layout stretched to
+the full height of a monitor is nobody's idea of a design.
 
 **Heights are `100svh`, never `100dvh`.** `svh` is the small viewport, the one
 you get with a mobile browser's toolbars showing. Size to `dvh` and the moment a
@@ -222,9 +266,10 @@ meaning in movement alone.
 ## Gotchas
 
 **`cellAspect` has two homes.** If you change `FRAME.cellAspect` in
-`lib/config/frame.ts` — it's square — you must also change `aspect-ratio` in the
-`.capture-box` rule in `app/globals.css`, or the frame on screen stops matching
-the crop the shutter takes.
+`lib/config/frame.ts` — it's 16:9 — you must also change `aspect-ratio` in the
+`.preview-box` rule in `app/globals.css`, or the camera preview stops matching
+the output. `.preview-box` also multiplies by the aspect in its `width` calc,
+so that needs changing too.
 
 **A filter is described once and rendered twice.** Each entry in `filters.ts` is
 a CSS filter string (`css`), a list of colour layers (`washes`) and a grain
