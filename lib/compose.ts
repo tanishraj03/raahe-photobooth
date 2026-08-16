@@ -2,7 +2,7 @@
 
 import { EVENT, LOGO_FALLBACK_TEXT, LOGO_SOURCES } from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
-import { DRAWINGS, paintCable, paintDrawing } from "@/lib/illustrations";
+
 
 /* ================================================================
    TYPE HELPERS
@@ -240,14 +240,23 @@ export type Strip = {
   height: number;
 };
 
+/** Artwork for a border, if any has been supplied. */
+async function loadArt(src: string): Promise<HTMLImageElement | null> {
+  try {
+    const image = await loadImage(src);
+    return image.naturalWidth > 0 ? image : null;
+  } catch {
+    // Nothing there. The strip is designed to look finished without it.
+    return null;
+  }
+}
+
 /**
  * Draws the three photos into the strip and returns it as a JPEG.
  *
  * The canvas *is* the strip — 1080 × 1920 of it, edge to edge. There
  * is no story background and nothing floating on one: the trim of
- * the image is the trim of the print, and the borders either side of
- * the photos are the strip's own borders, with the cable and the
- * drawings running through them.
+ * the image is the trim of the print.
  *
  * Runs entirely in the browser — no photo ever leaves the device.
  */
@@ -255,15 +264,16 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const F = FRAME;
   const P = F.poster;
   const G = F.ground;
-  const A = F.art;
+  const B = F.border;
   const H = F.head;
   const Ft = F.foot;
-  const inks = F.colors.ink;
   const stack = fontStack();
 
-  const [images, logo] = await Promise.all([
+  const [images, logo, artLeft, artRight] = await Promise.all([
     Promise.all(photos.map(loadImage)),
     loadLogo(),
+    loadArt(F.art.left),
+    loadArt(F.art.right),
     waitForFont(stack),
   ]);
 
@@ -271,14 +281,11 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const height = P.height;
   const count = Math.max(1, images.length);
 
-  /* ---------------- Layout ----------------
+  /* ---------------- Layout ---------------- */
 
-     Everything falls out of two numbers: how wide the border is, and
-     how tall a photo is at that width. What's left over after three
-     of them splits between the head and the foot. */
-
-  const cellWidth = width - P.border * 2;
+  const cellWidth = Math.min(P.photoWidth, width - 80);
   const cellHeight = Math.round(cellWidth / F.cellAspect);
+  const border = (width - cellWidth) / 2;
   const photosHeight = cellHeight * count + P.photoGap * (count - 1);
 
   const spare = Math.max(0, height - photosHeight);
@@ -300,138 +307,85 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   ctx.imageSmoothingQuality = "high";
   ctx.textBaseline = "middle";
 
-  // The paper.
   ctx.fillStyle = F.colors.background;
   ctx.fillRect(0, 0, width, height);
 
-  if (G.dotSize > 0) {
-    ctx.fillStyle = F.colors.dot;
-    for (let y = G.dotSpacing / 2; y < height; y += G.dotSpacing) {
-      for (let x = G.dotSpacing / 2; x < width; x += G.dotSpacing) {
-        ctx.beginPath();
-        ctx.arc(x, y, G.dotSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-
-  /* ---------------- The borders ----------------
-
-     Cable first, drawings over it, so a lead reads as running behind
-     the thing it's plugged into. */
-
-  if (A.enabled) {
-    const cableTop = photoTop - 24;
-    const cableRun = photosHeight + 48;
-
-    for (const [x, phase] of [
-      [P.border / 2, 0],
-      [width - P.border / 2, 1],
-    ] as const) {
-      paintCable(ctx, x, cableTop, cableRun, {
-        colour: inks.pink,
-        width: A.cable.width,
-        sway: A.cable.sway,
-        alpha: A.cable.alpha,
-        glow: A.glow,
-        phase,
-      });
-    }
-
-    /*
-     * Each drawing is centred in its lane and clamped so it can
-     * never spill onto a photo. A turned drawing swaps its footprint
-     * — that's the point of turning it, so a wide object can fill a
-     * narrow lane instead of shrinking to nothing in it.
-     */
-    const place = (
-      items: readonly { name: string; height: number; turn?: number }[],
-      laneLeft: number,
-      spread: number[],
-    ) => {
-      items.forEach((item, index) => {
-        const box = DRAWINGS[item.name]?.box;
-        if (!box) return;
-
-        const turned = item.turn === 90 || item.turn === -90;
-        const room = P.border - 10;
-
-        // Footprint on the strip, before it's clamped to the lane.
-        let visualHeight = item.height;
-        let visualWidth = turned
-          ? (box[1] / box[0]) * visualHeight
-          : (box[0] / box[1]) * visualHeight;
-
-        if (visualWidth > room) {
-          const shrink = room / visualWidth;
-          visualWidth = room;
-          visualHeight *= shrink;
-        }
-
-        // paintDrawing wants the drawing's own height and rotates
-        // about the centre of the box it's given — so for a turned
-        // drawing the two simply swap.
-        const drawHeight = turned ? visualWidth : visualHeight;
-        const drawWidth = (box[0] / box[1]) * drawHeight;
-
-        const centreLane = laneLeft + P.border / 2;
-        const centreY = photoTop + photosHeight * spread[index];
-
-        paintDrawing(
-          ctx,
-          item.name,
-          centreLane - drawWidth / 2,
-          centreY - drawHeight / 2,
-          drawHeight,
-          {
-            inks,
-            glow: A.glow,
-            rotate: item.turn ? (item.turn * Math.PI) / 180 : undefined,
-          },
-        );
-      });
-    };
-
-    place(A.leftBorder, 0, [0.14, 0.5, 0.86]);
-    place(A.rightBorder, width - P.border, [0.17, 0.52, 0.87]);
-  }
-
   /* ---------------- Head ---------------- */
 
-  if (A.enabled) {
-    if (DRAWINGS[A.head.name]) {
-      const h = Math.min(A.head.height, headHeight - 56);
-      paintDrawing(ctx, A.head.name, 26, (headHeight - 34 - h) / 2, h, {
-        inks,
-        glow: A.glow,
-      });
-    }
-  }
-
-  const cap = `${LOGO_FALLBACK_TEXT} · photobooth`.toUpperCase();
+  const cap = LOGO_FALLBACK_TEXT.toUpperCase();
   const capSize = fitSize(
     ctx,
     cap,
     600,
     H.capSize,
     H.capTracking,
-    width * 0.52,
+    width * 0.6,
     stack,
   );
   ctx.font = `600 ${capSize}px ${stack}`;
   ctx.fillStyle = F.colors.cap;
-  const capTracking = capSize * H.capTracking;
-  const capWidth = measure(ctx, cap, capTracking);
-  drawText(
-    ctx,
-    cap,
-    width - 40 - capWidth,
-    (headHeight - 34) / 2,
-    capTracking,
-  );
+  drawCentred(ctx, cap, centreX, headHeight / 2 - 12, capSize * H.capTracking);
 
   ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(40, headHeight - 26, width - 80, P.ruleHeight);
+  ctx.fillRect(border, headHeight - 30, cellWidth, P.ruleHeight);
+
+  /* ---------------- Borders ----------------
+
+     Quiet by design: a line of tracked type on its side, the frame
+     numbers, and any artwork that's been supplied. Nothing invented
+     to fill the space. */
+
+  if (artLeft || artRight) {
+    const artWidth = border * F.art.widthShare;
+    for (const [art, x] of [
+      [artLeft, (border - artWidth) / 2],
+      [artRight, width - border + (border - artWidth) / 2],
+    ] as const) {
+      if (!art) continue;
+      const artHeight = (art.naturalHeight / art.naturalWidth) * artWidth;
+      ctx.save();
+      ctx.globalAlpha = F.art.alpha;
+      ctx.drawImage(
+        art,
+        x,
+        photoTop + (photosHeight - artHeight) / 2,
+        artWidth,
+        artHeight,
+      );
+      ctx.restore();
+    }
+  } else if (B.sideText) {
+    // A different line each side, each reading in the direction you'd
+    // turn the print to read it. Same line twice would be wallpaper;
+    // one line and one empty lane looks unfinished.
+    const tracking = B.sideSize * B.sideTracking;
+    ctx.font = `600 ${B.sideSize}px ${stack}`;
+    ctx.fillStyle = F.colors.sideText;
+
+    const runs = [
+      { text: EVENT.name.toUpperCase(), x: border / 2, up: true },
+      {
+        text: `${EVENT.venue} · ${EVENT.date}`.toUpperCase(),
+        x: width - border / 2,
+        up: false,
+      },
+    ];
+
+    for (const run of runs) {
+      const runWidth = measure(ctx, run.text, tracking);
+      const middle = photoTop + photosHeight / 2;
+      ctx.save();
+      if (run.up) {
+        ctx.translate(run.x, middle + runWidth / 2);
+        ctx.rotate(-Math.PI / 2);
+      } else {
+        ctx.translate(run.x, middle - runWidth / 2);
+        ctx.rotate(Math.PI / 2);
+      }
+      drawText(ctx, run.text, 0, 0, tracking);
+      ctx.restore();
+    }
+  }
 
   /* ---------------- Photos ---------------- */
 
@@ -439,15 +393,11 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     const y = photoTop + index * (cellHeight + P.photoGap);
 
     ctx.save();
-    roundRectPath(ctx, P.border, y, cellWidth, cellHeight, P.photoRadius);
+    roundRectPath(ctx, border, y, cellWidth, cellHeight, P.photoRadius);
     ctx.clip();
-
-    // Something dark behind, so a slow-loading photo never shows white.
     ctx.fillStyle = F.colors.photoWell;
-    ctx.fillRect(P.border, y, cellWidth, cellHeight);
-
-    // The photo is already the right shape, so this is a clean fill.
-    ctx.drawImage(image, P.border, y, cellWidth, cellHeight);
+    ctx.fillRect(border, y, cellWidth, cellHeight);
+    ctx.drawImage(image, border, y, cellWidth, cellHeight);
     ctx.restore();
 
     if (P.photoKeyline > 0) {
@@ -455,7 +405,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
       ctx.lineWidth = P.photoKeyline;
       roundRectPath(
         ctx,
-        P.border + P.photoKeyline / 2,
+        border + P.photoKeyline / 2,
         y + P.photoKeyline / 2,
         cellWidth - P.photoKeyline,
         cellHeight - P.photoKeyline,
@@ -464,49 +414,61 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
       ctx.stroke();
     }
 
-    // The frame number, set on its side against the photo's edge.
-    ctx.save();
-    ctx.translate(P.border - 16, y + 30);
-    ctx.rotate(-Math.PI / 2);
-    ctx.font = `700 ${H.indexSize}px ${stack}`;
-    ctx.fillStyle = F.colors.index;
-    drawText(
-      ctx,
-      String(index + 1).padStart(2, "0"),
-      0,
-      0,
-      H.indexSize * H.indexTracking,
-    );
-    ctx.restore();
+    if (B.numbers) {
+      ctx.font = `700 ${B.numberSize}px ${stack}`;
+      ctx.fillStyle = F.colors.number;
+      const label = String(index + 1).padStart(2, "0");
+      const tracking = B.numberSize * B.numberTracking;
+      const labelWidth = measure(ctx, label, tracking);
+      drawText(ctx, label, border - 24 - labelWidth, y + 18, tracking);
+    }
   });
 
-  /* ---------------- Foot ---------------- */
+  /* ---------------- Foot ----------------
+
+     The mark and the name are one lockup, set side by side and
+     sized against each other. */
 
   ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(40, footTop + 22, width - 80, P.ruleHeight);
+  ctx.fillRect(border, footTop + 28, cellWidth, P.ruleHeight);
 
   const name = EVENT.name.toLowerCase();
+  const logoWidth = logo
+    ? Math.round((logo.naturalWidth / logo.naturalHeight) * Ft.logoHeight)
+    : 0;
+  const lockupRoom = width - 80 - logoWidth - (logo ? Ft.lockupGap : 0);
+
   const nameSize = fitSize(
     ctx,
     name,
     800,
     Ft.nameSize,
     Ft.nameTracking,
-    cellWidth,
+    lockupRoom,
     stack,
   );
-  const nameLine = Math.round(nameSize * Ft.nameLineHeight);
+  ctx.font = `800 ${nameSize}px ${stack}`;
+  const nameWidth = measure(ctx, name, nameSize * Ft.nameTracking);
+  const lockupWidth = logo
+    ? logoWidth + Ft.lockupGap + nameWidth
+    : Math.max(nameWidth, 0);
+  const lockupHeight = Math.max(Ft.logoHeight, nameSize);
 
   const venue = EVENT.venue.toUpperCase();
   let venueSize: number = Ft.venueSize;
   for (const word of venue.split(/\s+/)) {
     venueSize = Math.min(
       venueSize,
-      fitSize(ctx, word, 600, venueSize, Ft.venueTracking, cellWidth, stack),
+      fitSize(ctx, word, 600, venueSize, Ft.venueTracking, width - 120, stack),
     );
   }
   ctx.font = `600 ${venueSize}px ${stack}`;
-  const venueLines = wrapText(ctx, venue, cellWidth, venueSize * Ft.venueTracking);
+  const venueLines = wrapText(
+    ctx,
+    venue,
+    width - 120,
+    venueSize * Ft.venueTracking,
+  );
   const venueHeight =
     venueLines.length * venueSize + (venueLines.length - 1) * Ft.venueLineGap;
 
@@ -516,60 +478,39 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     700,
     Ft.dateSize,
     Ft.dateTracking,
-    cellWidth,
+    width - 120,
     stack,
   );
 
   const blockHeight =
-    Ft.logoHeight +
-    Ft.logoGap +
-    nameLine +
-    Ft.nameGap +
-    venueHeight +
-    Ft.venueGap +
-    dateSize;
+    lockupHeight + Ft.lockupGapBottom + venueHeight + Ft.venueGap + dateSize;
+  // Sits under the rule, with the space left over shared above and
+  // below so the date never crowds the trim.
+  let cursor = footTop + 52 + (footHeight - 96 - blockHeight) / 2;
 
-  // Centred in what the foot has left under its rule.
-  const blockTop = footTop + 40 + (footHeight - 64 - blockHeight) / 2;
-  let cursor = blockTop;
+  const lockupLeft = centreX - lockupWidth / 2;
+  const lockupMiddle = cursor + lockupHeight / 2;
 
   if (logo) {
-    const logoWidth = Math.round(
-      (logo.naturalWidth / logo.naturalHeight) * Ft.logoHeight,
-    );
     ctx.drawImage(
       logo,
-      Math.round(centreX - Math.min(logoWidth, cellWidth) / 2),
-      cursor,
-      Math.min(logoWidth, cellWidth),
+      Math.round(lockupLeft),
+      Math.round(lockupMiddle - Ft.logoHeight / 2),
+      logoWidth,
       Ft.logoHeight,
     );
-  } else {
-    // Same typographic fallback the on-screen mark uses. Never a
-    // redrawn approximation of the logo itself.
-    const size = Math.round(Ft.logoHeight * 0.72);
-    ctx.font = `800 ${size}px ${stack}`;
-    ctx.fillStyle = F.colors.title;
-    drawCentred(
-      ctx,
-      LOGO_FALLBACK_TEXT,
-      centreX,
-      cursor + Ft.logoHeight / 2,
-      size * -0.03,
-    );
   }
-  cursor += Ft.logoHeight + Ft.logoGap;
 
   ctx.font = `800 ${nameSize}px ${stack}`;
   ctx.fillStyle = F.colors.title;
-  drawCentred(
+  drawText(
     ctx,
     name,
-    centreX,
-    cursor + nameLine / 2,
+    logo ? lockupLeft + logoWidth + Ft.lockupGap : lockupLeft,
+    lockupMiddle,
     nameSize * Ft.nameTracking,
   );
-  cursor += nameLine + Ft.nameGap;
+  cursor += lockupHeight + Ft.lockupGapBottom;
 
   ctx.font = `600 ${venueSize}px ${stack}`;
   ctx.fillStyle = F.colors.venue;

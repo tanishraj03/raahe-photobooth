@@ -8,27 +8,32 @@
  * THE SHAPE
  * The export is **9:16, 1080 × 1920** — and the whole of it is the
  * photo strip. Not a story with a strip sitting on it: the canvas
- * edge *is* the edge of the strip, the borders are the strip's own
- * borders, and the artwork in them runs to the trim.
+ * edge *is* the edge of the strip.
  *
  *      ┌────────────────────────────┐ ← the canvas edge is the strip edge
- *      │ ✦ camera        RAAHE.CO   │
- *      │ ────────────────────────── │
- *      │ ┃ ┌──────────────────────┐ │
- *      │ ┃ │       photo 1        │ │
- *      │ ┃ └──────────────────────┘ │  the borders carry the
- *      │ ┃ ┌──────────────────────┐ │  cable and the drawings
- *      │ ┃ │       photo 2        │ │
- *      │ ┃ └──────────────────────┘ │
- *      │ ┃ ┌──────────────────────┐ │
- *      │ ┃ │       photo 3        │ │
- *      │ ┃ └──────────────────────┘ │
- *      │ ────────────────────────── │
- *      │        [ raahe logo ]      │
- *      │       RAAHE OPEN MIC       │
- *      │   STARBUCKS VITTAL MALLYA  │
+ *      │        RAAHE.CO            │
+ *      │ ───────────────────────────│
+ *      │      ┌──────────────┐      │
+ *      │  01  │   photo 1    │  R   │
+ *      │      └──────────────┘  A   │
+ *      │      ┌──────────────┐  A   │  the borders are quiet on
+ *      │  02  │   photo 2    │  H   │  purpose — see below
+ *      │      └──────────────┘  E   │
+ *      │      ┌──────────────┐      │
+ *      │  03  │   photo 3    │      │
+ *      │      └──────────────┘      │
+ *      │ ───────────────────────────│
+ *      │   [LOGO] raahe open mic    │
+ *      │  STARBUCKS VITTAL MALLYA   │
  *      │         22.08.2026         │
  *      └────────────────────────────┘
+ *
+ * THE BORDERS ARE DELIBERATELY SPARSE.
+ * They carry a rule, a line of tracked type and the frame numbers,
+ * and nothing else. An empty, well-set border beats a border filled
+ * with small drawn objects — those read as clip art at this size, no
+ * matter how they're drawn. If real illustration artwork is ever
+ * commissioned, `art` below is where it goes.
  *
  * All sizes are pixels at export resolution.
  */
@@ -39,19 +44,19 @@ export const FRAME = {
   /**
    * Width divided by height of a single photo.
    *
-   * 16/9 is not a style choice, it's arithmetic: three photos across
-   * the full width of a 1080 × 1920 strip, with room left over at
-   * the head and the foot, only fits at about this shape. Squares
-   * would need 2760px of height and there are 1920.
+   * Square, because it's the shape that serves both ends: on the
+   * strip three of them stack into a column with room to spare, and
+   * on a phone a square preview fills the width and most of the
+   * height, which is what makes the camera feel like the hero.
    *
-   * If you change this, change `aspect-ratio` in the .preview-box
-   * rule in app/globals.css to match, or the camera will show a
-   * different crop from the one it takes.
+   * If you change this, change `aspect-ratio` in the `.capture-box`
+   * rule in app/globals.css to match, or the preview will show a
+   * different crop from the one the shutter takes.
    */
-  cellAspect: 16 / 9,
+  cellAspect: 1,
 
   /** Pixel width each photo is captured at, before it's placed. */
-  photoWidth: 1280,
+  photoWidth: 1080,
 
   /** JPEG quality of each captured photo, 0 to 1. */
   photoQuality: 0.92,
@@ -65,127 +70,108 @@ export const FRAME = {
     /** 9:16. The whole thing is the strip. */
     width: 1080,
     height: 1920,
-    /**
-     * The strip's own border, left and right. This is where the
-     * cable and the drawings live, so it has to be worth looking at
-     * — wide enough for a drawing to be a drawing rather than a
-     * mark, and no wider.
-     */
-    border: 150,
+    /** How wide each photo is. The borders are what's left over. */
+    photoWidth: 500,
     /** Space between photos. */
-    photoGap: 22,
+    photoGap: 24,
     /**
      * How the space left over above and below the photos is split.
-     * The foot carries four lines of type, so it gets more.
+     * The foot carries the lockup and three lines, so it gets more.
      */
-    headShare: 0.34,
-    /** Corner rounding on each photo. Real booths print them square. */
-    photoRadius: 5,
-    /** A hairline drawn tight around each photo. */
+    headShare: 0.33,
+    photoRadius: 4,
     photoKeyline: 2,
-    /** Rule under the head and over the foot. */
-    ruleHeight: 3,
+    ruleHeight: 2,
   },
 
-  /* ---------------- Grain and ground ---------------- */
+  /* ---------------- Ground ---------------- */
 
   ground: {
-    /** Faint dot field over the whole strip. Set size to 0 to drop. */
-    dotSize: 2.4,
-    dotSpacing: 44,
-    /** Printer's crop marks at the trim. */
+    /** A single sheet of tone. No dot fields, no texture tricks. */
     cropMarks: true,
-    cropMarkLength: 30,
-    cropMarkInset: 20,
-    cropMarkWidth: 2,
+    cropMarkLength: 26,
+    cropMarkInset: 22,
+    cropMarkWidth: 1.5,
   },
 
-  /* ---------------- The artwork ---------------- */
+  /* ---------------- What's in the borders ---------------- */
 
+  border: {
+    /** The event, set on its side and running up each border. */
+    sideText: true,
+    sideSize: 19,
+    sideTracking: 0.3,
+    /** The frame numbers beside each photo. */
+    numbers: true,
+    numberSize: 17,
+    numberTracking: 0.2,
+  },
+
+  /**
+   * ILLUSTRATION SLOT
+   * ----------------------------------------------------------------
+   * Drop real artwork at these paths in /public and it's drawn into
+   * the borders, scaled to the border width and centred on the run
+   * of photos. Nothing is drawn if the files aren't there, and the
+   * strip is designed to look finished without them.
+   *
+   * Line art on a transparent background, portrait, roughly 1:4.
+   */
   art: {
-    /** Set false for a plain strip. */
-    enabled: true,
-    /**
-     * How much ink bleeds around the pink and white line work. This
-     * is signage glow, not neon — keep it in single figures.
-     */
-    glow: 9,
-    /** The lead that ties the drawings on a border together. */
-    cable: { width: 5, sway: 20, alpha: 0.55 },
-    /**
-     * Drawings down each border, top to bottom, spread evenly over
-     * the run of photos. `height` is the visual height on the strip;
-     * `turn` rotates a wide object onto its side so it can fill a
-     * narrow lane instead of shrinking to nothing in it.
-     */
-    leftBorder: [
-      { name: "micStand", height: 262 },
-      { name: "cassette", height: 206, turn: -90 },
-      { name: "jackPlug", height: 226 },
-    ],
-    rightBorder: [
-      { name: "speakerCab", height: 214 },
-      { name: "handButton", height: 196, turn: 90 },
-      { name: "headphones", height: 176 },
-    ],
-    /** In the head, beside the cap line. */
-    head: { name: "flashCam", height: 126 },
+    left: "/art/border-left.svg",
+    right: "/art/border-right.svg",
+    /** Fraction of the border width the artwork spans. */
+    widthShare: 0.82,
+    alpha: 0.9,
   },
 
   /* ---------------- The head ---------------- */
 
   head: {
-    capSize: 20,
-    capTracking: 0.24,
-    /** The small numbers beside each photo. */
-    indexSize: 17,
-    indexTracking: 0.18,
+    capSize: 19,
+    capTracking: 0.3,
   },
 
   /* ---------------- The foot ---------------- */
 
   foot: {
-    /** The mark. Its width follows its own proportions. */
-    logoHeight: 62,
-    logoGap: 24,
-
-    /** Event name, fitted to one line across the strip. */
-    nameSize: 84,
+    /**
+     * The mark and the event name are one lockup, set side by side
+     * and sized against each other — not a small logo floating above
+     * a line of type.
+     */
+    logoHeight: 92,
+    /** Space between the mark and the name. */
+    lockupGap: 26,
+    nameSize: 66,
     nameTracking: -0.04,
-    nameLineHeight: 0.9,
-    nameGap: 20,
 
-    /** Venue. Wraps if it has to. */
-    venueSize: 21,
-    venueTracking: 0.16,
+    /** Space under the lockup. */
+    lockupGapBottom: 34,
+
+    venueSize: 20,
+    venueTracking: 0.18,
     venueLineGap: 10,
-    venueGap: 16,
+    venueGap: 18,
 
-    /** Date. */
-    dateSize: 28,
-    dateTracking: 0.04,
+    dateSize: 30,
+    dateTracking: 0.06,
   },
 
   /* ---------------- Colours ---------------- */
 
   colors: {
-    background: "#191919",
-    dot: "rgba(240, 78, 152, 0.09)",
-    photoWell: "#101010",
-    photoKeyline: "rgba(244, 245, 245, 0.16)",
-    rule: "#F04E98",
-    cap: "rgba(244, 245, 245, 0.42)",
-    index: "rgba(240, 78, 152, 0.75)",
-    cropMark: "rgba(240, 78, 152, 0.35)",
+    background: "#1A1A1A",
+    photoWell: "#0E0E0E",
+    photoKeyline: "rgba(244, 245, 245, 0.14)",
+    rule: "rgba(244, 245, 245, 0.16)",
+    cap: "rgba(244, 245, 245, 0.38)",
+    sideText: "rgba(244, 245, 245, 0.22)",
+    number: "rgba(240, 78, 152, 0.85)",
+    cropMark: "rgba(244, 245, 245, 0.18)",
     title: "#F4F5F5",
-    venue: "rgba(244, 245, 245, 0.55)",
+    venue: "rgba(244, 245, 245, 0.5)",
     date: "#F04E98",
-    /** The three inks the drawings are made of. */
-    ink: {
-      pink: "#F04E98",
-      paper: "#F4F5F5",
-      grey: "#7E7E7E",
-    },
   },
 } as const;
 
