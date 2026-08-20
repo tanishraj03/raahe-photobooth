@@ -1023,21 +1023,25 @@ button {
 
 /* ------------------------------------------------------------
    CAMERA PREVIEW
-   The square the camera actually captures, letterboxed inside
+   The rectangle the camera actually captures, letterboxed inside
    the tube. Change the aspect-ratio here if you change
    FRAME.cellAspect.
    ------------------------------------------------------------ */
 .preview-box {
   /* Must match FRAME.cellAspect, or the preview shows a different
      crop from the one the shutter takes. */
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 9;
   /*
    * Whichever runs out first decides how big the preview gets: the
    * width of the tube, or what's left of the viewport once the hood,
    * bezel, deck, HUD and filter bank have taken theirs. Add a row to
-   * any of those and put it in --machine-chrome too, or the square
+   * any of those and put it in --machine-chrome too, or the frame
    * grows past its space and the tube clips it.
+   *
+   * The `* 16 / 9` turns that leftover *height* into the width a
+   * 16:9 box needs to fit it. Change the aspect above and this has
+   * to change with it.
    */
-  width: min(100%, calc(100svh - var(--machine-chrome)));
+  width: min(100%, calc((100svh - var(--machine-chrome)) * 16 / 9));
   margin-inline: auto;
 }

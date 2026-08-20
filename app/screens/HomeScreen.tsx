@@ -2,7 +2,6 @@
 
 import Cabinet from "@/components/Cabinet";
 import Control from "@/components/Control";
-import Drawing from "@/components/Drawing";
 import Marquee from "@/components/Marquee";
 import RiseText from "@/components/RiseText";
 import { CREDITS, EVENT } from "@/lib/config/event";
@@ -51,19 +50,23 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
       }
     >
       <div className="relative flex h-full flex-col overflow-hidden">
-        {/* The mic, behind the type. */}
+        {/*
+          The mic, behind the type. A chrome one, faded back so it
+          reads as an object sitting in the dark rather than a picture
+          pasted on: it is the only thing on this screen that isn't
+          drawn, so it has to stay quiet. The opacity is the dial —
+          push it past ~0.5 and it starts competing with the display
+          type instead of sitting behind it.
+        */}
         <div
           aria-hidden="true"
-          className="animate-fade pointer-events-none absolute inset-y-0 right-[-3rem] z-0 flex items-center"
+          className="animate-fade pointer-events-none absolute inset-y-0 right-[-4.5rem] z-0 flex items-center lg:right-[-3rem]"
         >
-          <Drawing
-            name="micStand"
-            className="animate-float h-[78%] w-auto lg:h-[72%]"
-            inks={{
-              pink: "rgba(240,78,152,0.34)",
-              paper: "rgba(244,245,245,0.16)",
-              grey: "rgba(244,245,245,0.10)",
-            }}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/mic-hero.webp"
+            alt=""
+            className="animate-float h-[86%] w-auto opacity-[0.38] [mask-image:linear-gradient(to_bottom,transparent,black_14%,black_72%,transparent)] lg:h-[80%] lg:opacity-[0.32]"
           />
         </div>
 

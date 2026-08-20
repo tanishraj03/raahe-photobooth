@@ -28,7 +28,7 @@ export default function StripProgress({
           return (
             <span key={i} className="relative block">
               <span
-                className={`block size-9 overflow-hidden rounded-lg border bg-ink transition-colors duration-300 ${
+                className={`block h-9 w-16 overflow-hidden rounded-lg border bg-ink transition-colors duration-300 ${
                   shot
                     ? "border-pink"
                     : isNext

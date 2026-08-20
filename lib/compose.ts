@@ -2,7 +2,7 @@
 
 import { EVENT, LOGO_FALLBACK_TEXT, LOGO_SOURCES } from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
-import { DRAWINGS, paintCable, paintDrawing } from "@/lib/illustrations";
+import { DRAWINGS, paintDrawing } from "@/lib/illustrations";
 
 /* ================================================================
    TYPE HELPERS
@@ -10,8 +10,9 @@ import { DRAWINGS, paintCable, paintDrawing } from "@/lib/illustrations";
    Canvas text needs more care than CSS text. Two things matter:
    the brand font has to be loaded before we draw with it, and
    letter spacing has to work on browsers that don't support
-   ctx.letterSpacing — the tracked venue line is a big part of how
-   the strip reads, so it can't quietly collapse.
+   ctx.letterSpacing — the tracked venue line and the wordmark on
+   the bands are a big part of how the strip reads, so they can't
+   quietly collapse.
    ================================================================ */
 
 /**
@@ -37,6 +38,7 @@ async function waitForFont(stack: string) {
       document.fonts.load(`800 ${F.nameSize}px ${primary}`),
       document.fonts.load(`600 ${F.venueSize}px ${primary}`),
       document.fonts.load(`700 ${F.dateSize}px ${primary}`),
+      document.fonts.load(`800 ${FRAME.band.sizes[0]}px ${primary}`),
     ]);
   } catch {
     // Loading by name can fail on some browsers. The next line still helps.
@@ -197,6 +199,58 @@ function roundRectPath(
   ctx.closePath();
 }
 
+/**
+ * A rectangle with a wavy edge, the way a sticker is die-cut.
+ *
+ * Each side gets a whole number of half-waves so the wobble reaches
+ * zero exactly at every corner — that's what stops the four edges
+ * meeting at a kink. The bumps push *outward* only, so the cut
+ * never eats into the photo.
+ */
+function scallopPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  amplitude: number,
+  period: number,
+) {
+  const step = 3; // sampling, in pixels — small enough to look smooth
+  const bumps = (length: number) => Math.max(2, Math.round(length / period));
+
+  const across = bumps(w);
+  const down = bumps(h);
+
+  ctx.beginPath();
+
+  const edge = (
+    from: [number, number],
+    to: [number, number],
+    normal: [number, number],
+    count: number,
+    first: boolean,
+  ) => {
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const steps = Math.max(2, Math.round(length / step));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const swing = Math.sin(Math.PI * t * count) * amplitude;
+      const px = from[0] + (to[0] - from[0]) * t + normal[0] * swing;
+      const py = from[1] + (to[1] - from[1]) * t + normal[1] * swing;
+      if (first && i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+  };
+
+  edge([x, y], [x + w, y], [0, -1], across, true);
+  edge([x + w, y], [x + w, y + h], [1, 0], down, false);
+  edge([x + w, y + h], [x, y + h], [0, 1], across, false);
+  edge([x, y + h], [x, y], [-1, 0], down, false);
+
+  ctx.closePath();
+}
+
 /* ================================================================
    LOADING
    ================================================================ */
@@ -245,9 +299,9 @@ export type Strip = {
  *
  * The canvas *is* the strip — 1080 × 1920 of it, edge to edge. There
  * is no story background and nothing floating on one: the trim of
- * the image is the trim of the print, and the borders either side of
- * the photos are the strip's own borders, with the cable and the
- * drawings running through them.
+ * the image is the trim of the print, and the pink bands either side
+ * of the photos run to that trim with the wordmark repeated down
+ * them.
  *
  * Runs entirely in the browser — no photo ever leaves the device.
  */
@@ -256,6 +310,9 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const P = F.poster;
   const G = F.ground;
   const A = F.art;
+  const B = F.band;
+  const S = F.scallop;
+  const C = F.checker;
   const H = F.head;
   const Ft = F.foot;
   const inks = F.colors.ink;
@@ -273,9 +330,9 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   /* ---------------- Layout ----------------
 
-     Everything falls out of two numbers: how wide the border is, and
-     how tall a photo is at that width. What's left over after three
-     of them splits between the head and the foot. */
+     Everything falls out of two numbers: how wide the band is, and
+     how tall a photo is at the width that's left. What remains after
+     three of them splits between the head and the foot. */
 
   const cellWidth = width - P.border * 2;
   const cellHeight = Math.round(cellWidth / F.cellAspect);
@@ -288,6 +345,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const footHeight = height - footTop;
 
   const centreX = width / 2;
+  const innerLeft = P.border;
 
   /* ---------------- Canvas ---------------- */
 
@@ -304,10 +362,15 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   ctx.fillStyle = F.colors.background;
   ctx.fillRect(0, 0, width, height);
 
+  // The dot field, kept to the inner column — the bands are solid.
   if (G.dotSize > 0) {
     ctx.fillStyle = F.colors.dot;
     for (let y = G.dotSpacing / 2; y < height; y += G.dotSpacing) {
-      for (let x = G.dotSpacing / 2; x < width; x += G.dotSpacing) {
+      for (
+        let x = innerLeft + G.dotSpacing / 2;
+        x < innerLeft + cellWidth;
+        x += G.dotSpacing
+      ) {
         ctx.beginPath();
         ctx.arc(x, y, G.dotSize / 2, 0, Math.PI * 2);
         ctx.fill();
@@ -315,98 +378,62 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     }
   }
 
-  /* ---------------- The borders ----------------
+  /* ---------------- The bands ----------------
 
-     Cable first, drawings over it, so a lead reads as running behind
-     the thing it's plugged into. */
+     Solid pink to the trim, with the wordmark repeated down each one
+     on its side: reading up the left, down the right, so the strip
+     is the right way up whichever edge you read. */
 
-  if (A.enabled) {
-    const cableTop = photoTop - 24;
-    const cableRun = photosHeight + 48;
+  if (B.enabled) {
+    ctx.fillStyle = F.colors.band;
+    ctx.fillRect(0, 0, P.border, height);
+    ctx.fillRect(width - P.border, 0, P.border, height);
 
-    for (const [x, phase] of [
-      [P.border / 2, 0],
-      [width - P.border / 2, 1],
-    ] as const) {
-      paintCable(ctx, x, cableTop, cableRun, {
-        colour: inks.pink,
-        width: A.cable.width,
-        sway: A.cable.sway,
-        alpha: A.cable.alpha,
-        glow: A.glow,
-        phase,
-      });
-    }
+    /** One pass of the repeating wordmark down a band. */
+    const paintBand = (centreLane: number, direction: 1 | -1) => {
+      ctx.save();
+      ctx.translate(centreLane, height / 2);
+      // -90° reads up the strip, +90° reads down it.
+      ctx.rotate((direction * Math.PI) / 2);
+      ctx.fillStyle = F.colors.bandInk;
 
-    /*
-     * Each drawing is centred in its lane and clamped so it can
-     * never spill onto a photo. A turned drawing swaps its footprint
-     * — that's the point of turning it, so a wide object can fill a
-     * narrow lane instead of shrinking to nothing in it.
-     */
-    const place = (
-      items: readonly { name: string; height: number; turn?: number }[],
-      laneLeft: number,
-      spread: number[],
-    ) => {
-      items.forEach((item, index) => {
-        const box = DRAWINGS[item.name]?.box;
-        if (!box) return;
+      // The run is the strip's height, drawn along the rotated x axis.
+      const run = height;
+      let cursor = -run / 2;
+      let index = 0;
 
-        const turned = item.turn === 90 || item.turn === -90;
-        const room = P.border - 10;
+      while (cursor < run / 2) {
+        const word = B.words[index % B.words.length];
+        const size = B.sizes[index % B.sizes.length];
+        const weight = B.weights[index % B.weights.length];
+        const tracking = size * B.trackings[index % B.trackings.length];
 
-        // Footprint on the strip, before it's clamped to the lane.
-        let visualHeight = item.height;
-        let visualWidth = turned
-          ? (box[1] / box[0]) * visualHeight
-          : (box[0] / box[1]) * visualHeight;
+        ctx.font = `${weight} ${size}px ${stack}`;
+        const wordWidth = measure(ctx, word, tracking);
 
-        if (visualWidth > room) {
-          const shrink = room / visualWidth;
-          visualWidth = room;
-          visualHeight *= shrink;
+        drawText(ctx, word, cursor, 0, tracking);
+        cursor += wordWidth + B.wordGap;
+
+        if (B.dotSize > 0) {
+          ctx.beginPath();
+          ctx.arc(cursor - B.wordGap / 2, 0, B.dotSize / 2, 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        // paintDrawing wants the drawing's own height and rotates
-        // about the centre of the box it's given — so for a turned
-        // drawing the two simply swap.
-        const drawHeight = turned ? visualWidth : visualHeight;
-        const drawWidth = (box[0] / box[1]) * drawHeight;
+        index += 1;
+      }
 
-        const centreLane = laneLeft + P.border / 2;
-        const centreY = photoTop + photosHeight * spread[index];
-
-        paintDrawing(
-          ctx,
-          item.name,
-          centreLane - drawWidth / 2,
-          centreY - drawHeight / 2,
-          drawHeight,
-          {
-            inks,
-            glow: A.glow,
-            rotate: item.turn ? (item.turn * Math.PI) / 180 : undefined,
-          },
-        );
-      });
+      ctx.restore();
     };
 
-    place(A.leftBorder, 0, [0.14, 0.5, 0.86]);
-    place(A.rightBorder, width - P.border, [0.17, 0.52, 0.87]);
+    paintBand(P.border / 2, -1);
+    paintBand(width - P.border / 2, 1);
   }
 
-  /* ---------------- Head ---------------- */
+  /* ---------------- Head ----------------
 
-  if (A.enabled) {
-    if (DRAWINGS[A.head.name]) {
-      const h = Math.min(A.head.height, headHeight - 56);
-      paintDrawing(ctx, A.head.name, 26, (headHeight - 34 - h) / 2, h, {
-        inks,
-        glow: A.glow,
-      });
-    }
-  }
+     A pink plate with the booth's name on it, centred in the column.
+     The event's own name is saved for the foot, set large. */
 
   const cap = `${LOGO_FALLBACK_TEXT} · photobooth`.toUpperCase();
   const capSize = fitSize(
@@ -415,47 +442,75 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     600,
     H.capSize,
     H.capTracking,
-    width * 0.52,
+    cellWidth - H.platePadX * 2 - 40,
     stack,
   );
   ctx.font = `600 ${capSize}px ${stack}`;
-  ctx.fillStyle = F.colors.cap;
   const capTracking = capSize * H.capTracking;
   const capWidth = measure(ctx, cap, capTracking);
-  drawText(
+
+  const plateWidth = capWidth + H.platePadX * 2;
+  const plateHeight = Math.min(H.plateHeight, headHeight - 34);
+  const plateTop = Math.max(12, (headHeight - 26 - plateHeight) / 2);
+
+  ctx.fillStyle = F.colors.band;
+  roundRectPath(
     ctx,
-    cap,
-    width - 40 - capWidth,
-    (headHeight - 34) / 2,
-    capTracking,
+    centreX - plateWidth / 2,
+    plateTop,
+    plateWidth,
+    plateHeight,
+    Math.min(H.plateRadius, plateHeight / 2),
   );
+  ctx.fill();
+
+  ctx.fillStyle = F.colors.cap;
+  drawText(ctx, cap, centreX - capWidth / 2, plateTop + plateHeight / 2, capTracking);
 
   ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(40, headHeight - 26, width - 80, P.ruleHeight);
+  ctx.fillRect(innerLeft, headHeight - 28, cellWidth, P.ruleHeight);
 
-  /* ---------------- Photos ---------------- */
+  /* ---------------- Photos ----------------
+
+     Each one is clipped to its scalloped cut, then the cut is drawn
+     around it. The photo is already 16:9, so this is a clean fill. */
 
   images.forEach((image, index) => {
     const y = photoTop + index * (cellHeight + P.photoGap);
 
     ctx.save();
-    roundRectPath(ctx, P.border, y, cellWidth, cellHeight, P.photoRadius);
+    if (S.enabled) {
+      scallopPath(ctx, innerLeft, y, cellWidth, cellHeight, S.amplitude, S.period);
+    } else {
+      roundRectPath(ctx, innerLeft, y, cellWidth, cellHeight, P.photoRadius);
+    }
     ctx.clip();
 
     // Something dark behind, so a slow-loading photo never shows white.
     ctx.fillStyle = F.colors.photoWell;
-    ctx.fillRect(P.border, y, cellWidth, cellHeight);
+    ctx.fillRect(
+      innerLeft - S.amplitude,
+      y - S.amplitude,
+      cellWidth + S.amplitude * 2,
+      cellHeight + S.amplitude * 2,
+    );
 
-    // The photo is already the right shape, so this is a clean fill.
-    ctx.drawImage(image, P.border, y, cellWidth, cellHeight);
+    ctx.drawImage(image, innerLeft, y, cellWidth, cellHeight);
     ctx.restore();
 
-    if (P.photoKeyline > 0) {
+    // The cut, drawn around the photo it just clipped.
+    if (S.enabled) {
+      scallopPath(ctx, innerLeft, y, cellWidth, cellHeight, S.amplitude, S.period);
+      ctx.strokeStyle = F.colors.scallop;
+      ctx.lineWidth = S.strokeWidth;
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    } else if (P.photoKeyline > 0) {
       ctx.strokeStyle = F.colors.photoKeyline;
       ctx.lineWidth = P.photoKeyline;
       roundRectPath(
         ctx,
-        P.border + P.photoKeyline / 2,
+        innerLeft + P.photoKeyline / 2,
         y + P.photoKeyline / 2,
         cellWidth - P.photoKeyline,
         cellHeight - P.photoKeyline,
@@ -463,27 +518,71 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
       );
       ctx.stroke();
     }
-
-    // The frame number, set on its side against the photo's edge.
-    ctx.save();
-    ctx.translate(P.border - 16, y + 30);
-    ctx.rotate(-Math.PI / 2);
-    ctx.font = `700 ${H.indexSize}px ${stack}`;
-    ctx.fillStyle = F.colors.index;
-    drawText(
-      ctx,
-      String(index + 1).padStart(2, "0"),
-      0,
-      0,
-      H.indexSize * H.indexTracking,
-    );
-    ctx.restore();
   });
+
+  /* ---------------- Stickers ----------------
+
+     Slapped on the corner of a photo, straddling its edge, the way a
+     booth badges a print. Drawn last of the photo pass so they sit
+     over the cut. */
+
+  if (A.enabled) {
+    for (const sticker of A.stickers) {
+      const box = DRAWINGS[sticker.name]?.box;
+      if (!box || sticker.photo >= count) continue;
+
+      const drawHeight = sticker.height;
+      const drawWidth = (box[0] / box[1]) * drawHeight;
+      const y = photoTop + sticker.photo * (cellHeight + P.photoGap);
+
+      // Widened deliberately: FRAME is `as const`, so `corner` narrows
+      // to only the corners currently in use and comparing against the
+      // other two becomes a type error. Keep all four legal here so a
+      // sticker can be moved in config without touching this file.
+      const corner: string = sticker.corner;
+      const right = corner === "topRight" || corner === "bottomRight";
+      const bottom = corner === "bottomLeft" || corner === "bottomRight";
+
+      // Measured from the photo's corner to the sticker's *centre*,
+      // not its edge — a tilted drawing's bounding box is wider than
+      // the drawing, and anchoring by edge pushes it off the picture
+      // and onto the band, where white line work disappears.
+      const anchorX = right
+        ? innerLeft + cellWidth - A.stickerInset.x
+        : innerLeft + A.stickerInset.x;
+      const anchorY = bottom
+        ? y + cellHeight - A.stickerInset.y
+        : y + A.stickerInset.y;
+
+      const cx = anchorX - drawWidth / 2;
+      const cy = anchorY - drawHeight / 2;
+
+      paintDrawing(ctx, sticker.name, cx, cy, drawHeight, {
+        inks,
+        glow: A.glow,
+        rotate: sticker.turn ? (sticker.turn * Math.PI) / 180 : undefined,
+      });
+    }
+  }
 
   /* ---------------- Foot ---------------- */
 
-  ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(40, footTop + 22, width - 80, P.ruleHeight);
+  let footCursor = footTop;
+
+  if (C.enabled) {
+    footCursor += C.gap;
+    const squares = Math.floor(cellWidth / C.size);
+    const inset = (cellWidth - squares * C.size) / 2;
+    for (let i = 0; i < squares; i++) {
+      ctx.fillStyle = i % 2 === 0 ? F.colors.checkerA : F.colors.checkerB;
+      ctx.fillRect(innerLeft + inset + i * C.size, footCursor, C.size, C.size);
+    }
+    footCursor += C.size + C.gap;
+  } else {
+    ctx.fillStyle = F.colors.rule;
+    ctx.fillRect(innerLeft, footTop + 22, cellWidth, P.ruleHeight);
+    footCursor = footTop + 22 + P.ruleHeight;
+  }
 
   const name = EVENT.name.toLowerCase();
   const nameSize = fitSize(
@@ -529,9 +628,9 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     Ft.venueGap +
     dateSize;
 
-  // Centred in what the foot has left under its rule.
-  const blockTop = footTop + 40 + (footHeight - 64 - blockHeight) / 2;
-  let cursor = blockTop;
+  // Centred in what the foot has left under the checker rule.
+  const blockRoom = height - Ft.padBottom - (footCursor + Ft.padTop);
+  let cursor = footCursor + Ft.padTop + Math.max(0, (blockRoom - blockHeight) / 2);
 
   if (logo) {
     const logoWidth = Math.round(
@@ -540,7 +639,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     ctx.drawImage(
       logo,
       Math.round(centreX - Math.min(logoWidth, cellWidth) / 2),
-      cursor,
+      Math.round(cursor),
       Math.min(logoWidth, cellWidth),
       Ft.logoHeight,
     );
