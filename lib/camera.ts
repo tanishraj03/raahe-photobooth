@@ -107,6 +107,7 @@ export type CameraStatus = "idle" | "starting" | "ready" | "error";
 function constraintsFor(
   facing: "user" | "environment",
   deviceId?: string,
+  strict = false,
 ): MediaStreamConstraints[] {
   if (deviceId) {
     // A named camera has no sane fallback. Dropping to `{}` here would
@@ -116,6 +117,20 @@ function constraintsFor(
     return [
       { deviceId: { exact: deviceId }, width: { ideal: 1920 } },
       { deviceId: { exact: deviceId } },
+    ].map((video) => ({ video, audio: false }));
+  }
+
+  if (strict) {
+    // `exact`, so a phone that can't give us that side *fails* instead
+    // of quietly handing back the camera we're already on. Used by the
+    // flip, where "the other one" is the whole request.
+    return [
+      {
+        facingMode: { exact: facing },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      { facingMode: { exact: facing } },
     ].map((video) => ({ video, audio: false }));
   }
 
@@ -160,6 +175,8 @@ export function useCamera() {
   const streamRef = useRef<MediaStream | null>(null);
   const devicesRef = useRef<MediaDeviceInfo[]>([]);
   const indexRef = useRef(0);
+  /** Which side of the phone we believe we're on. */
+  const facingRef = useRef<"user" | "environment">("user");
 
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [problem, setProblem] = useState<CameraProblem | null>(null);
@@ -174,7 +191,11 @@ export function useCamera() {
   }, []);
 
   const open = useCallback(
-    async (facing: "user" | "environment" = "user", deviceId?: string) => {
+    async (
+      facing: "user" | "environment" = "user",
+      deviceId?: string,
+      strict = false,
+    ) => {
       if (typeof navigator === "undefined") return false;
 
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -189,14 +210,19 @@ export function useCamera() {
 
       let lastError: unknown = null;
 
-      for (const constraints of constraintsFor(facing, deviceId)) {
+      for (const constraints of constraintsFor(facing, deviceId, strict)) {
         try {
           const stream =
             await navigator.mediaDevices.getUserMedia(constraints);
           streamRef.current = stream;
 
           const track = stream.getVideoTracks()[0];
-          if (track) setMirrored(isFrontFacing(track));
+          if (track) {
+            const front = isFrontFacing(track);
+            setMirrored(front);
+            // Believe the track, not what we asked for.
+            facingRef.current = front ? "user" : "environment";
+          }
           // Asked fresh every time, because the front camera on a
           // phone usually has no light even when the back one does.
           setHasTorch(trackSupportsTorch(track));
@@ -255,20 +281,41 @@ export function useCamera() {
     [stop],
   );
 
-  /** Move to the next camera. Works for phone front/rear and multiple webcams. */
+  /**
+   * Turn the camera round.
+   *
+   * Ask for the *other side* by name first. This matters on phones: a
+   * modern handset lists four or five video inputs — front, then wide,
+   * ultra-wide and telephoto on the back — so walking a device index
+   * one step doesn't get you "the other camera", it gets you the next
+   * lens in an order nobody can predict. That's what made the first tap
+   * land back on the front camera and the second tap finally reach the
+   * back one.
+   *
+   * Device cycling stays as the fallback, for desktops and webcams that
+   * have no facingMode at all.
+   */
   const flip = useCallback(async () => {
+    const next = facingRef.current === "user" ? "environment" : "user";
+
+    if (await open(next, undefined, true)) return;
+
     const cams = devicesRef.current;
-    if (cams.length < 2) return;
+    if (cams.length < 2) {
+      // Nothing to fall back to. Reopen what we had so we don't leave
+      // the screen black after a failed switch.
+      await open(facingRef.current);
+      return;
+    }
 
     const previous = indexRef.current;
-    const next = (previous + 1) % cams.length;
-    indexRef.current = next;
+    const nextIndex = (previous + 1) % cams.length;
+    indexRef.current = nextIndex;
 
-    const ok = await open("user", cams[next].deviceId);
+    const ok = await open(facingRef.current, cams[nextIndex].deviceId);
     if (!ok) {
-      // Switching failed — put the working camera back.
       indexRef.current = previous;
-      await open("user", cams[previous].deviceId);
+      await open(facingRef.current, cams[previous].deviceId);
     }
   }, [open]);
 

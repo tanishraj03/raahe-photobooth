@@ -206,9 +206,11 @@ export default function CameraScreen({
 
   useEffect(() => {
     if (phase.kind === "counting") {
-      // One to go: light the camera's own lamp, if it has one and
-      // the switch is on. It needs a moment to come up to brightness.
-      if (phase.n === 1 && torchRef.current) void setTorch(true);
+      // Two to go: light the camera's own lamp. A phone lamp takes a
+      // few hundred milliseconds to reach full brightness, so one
+      // second of lead was cutting it fine — the shutter could land
+      // while it was still ramping and the photo came out unlit.
+      if (phase.n === 2 && torchRef.current) void setTorch(true);
 
       const tick = setTimeout(() => {
         setPhase(
@@ -229,6 +231,11 @@ export default function CameraScreen({
       let tries = 0;
 
       const attempt = () => {
+        // Assert the lamp again. If the countdown's attempt failed —
+        // a flip mid-count rebuilds the track, and the new one starts
+        // dark — this is the last chance to light it.
+        if (torchRef.current) void setTorch(true);
+
         const video = videoRef.current;
         const shot = video
           ? captureFrame(video, filterRef.current, mirroredRef.current)
@@ -356,7 +363,7 @@ export default function CameraScreen({
                   value={flashOn ? "on" : "off"}
                   onChange={(next) => setFlashOn(next === "on")}
                   disabled={running}
-                  note={hasTorch ? "Lamp" : "Screen"}
+                  note={hasTorch ? "Lamp + screen" : "Screen"}
                 />
               </div>
             </div>

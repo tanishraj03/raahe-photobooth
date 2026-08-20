@@ -36,6 +36,7 @@ export default function Cabinet({
   deck,
   status,
   flash = false,
+  mark = true,
   lean = false,
 }: {
   /** What's on the screen. */
@@ -46,6 +47,12 @@ export default function Cabinet({
   status?: string;
   /** Fires the flash bulb on the hood. */
   flash?: boolean;
+  /**
+   * Whether the casing carries the mark. Off on the attract screen,
+   * which shows the logo large on the display itself — the same mark
+   * twice, once at 26px, reads as a stray favicon next to the big one.
+   */
+  mark?: boolean;
   /** Trim the base to its slot. Used where the screen needs height. */
   lean?: boolean;
 }) {
@@ -64,10 +71,9 @@ export default function Cabinet({
 
           {/* On a kiosk the mark sits up on the hood beside the lens,
               where it would be silkscreened on a real cabinet. */}
-          <BrandMark
-            height={34}
-            className="hidden shrink-0 lg:block"
-          />
+          {mark && (
+            <BrandMark height={34} className="hidden shrink-0 lg:block" />
+          )}
 
           <span
             className="lens block size-8 shrink-0 lg:size-12"
@@ -91,8 +97,12 @@ export default function Cabinet({
 
         {/* ---------- Name plate (phone only; the kiosk carries it
              on the hood row above) ---------- */}
-        <div className="flex items-center justify-between gap-3 pt-2 pb-2.5 lg:hidden">
-          <BrandMark height={26} className="shrink-0" />
+        <div
+          className={`flex items-center gap-3 pt-2 pb-2.5 lg:hidden ${
+            mark ? "justify-between" : "justify-end"
+          }`}
+        >
+          {mark && <BrandMark height={26} className="shrink-0" />}
 
           <div className="flex items-center gap-2">
             <span

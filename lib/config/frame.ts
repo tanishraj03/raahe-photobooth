@@ -75,17 +75,19 @@ export const FRAME = {
      * every pixel here is a pixel off the photos.
      */
     border: 110,
-    /** Space between photos. */
-    photoGap: 22,
+    /**
+     * Clear space between a band and the white edge of a print. The
+     * print border is drawn *outside* the photo, so without this the
+     * white would sit on the pink.
+     */
+    gutter: 12,
+    /** Space between one print and the next, white edge to white edge. */
+    photoGap: 30,
     /**
      * How the space left over above and below the photos is split.
      * The foot carries four lines of type, so it gets most of it.
      */
     headShare: 0.12,
-    /** Corner rounding on each photo, inside the scallop. */
-    photoRadius: 4,
-    /** A hairline drawn tight around each photo. */
-    photoKeyline: 2,
     /** Rule under the head. */
     ruleHeight: 3,
   },
@@ -126,18 +128,16 @@ export const FRAME = {
   },
 
   /* ---------------- The photo frames ----------------
-     A wavy edge, cut the way a photo-booth sticker is cut. The photo
-     is clipped to it, so the scallop is the photo's own edge rather
-     than a frame sitting on top of one. */
+     A white print border, the way a photo comes out of a booth with a
+     margin around it. Square corners, barely softened — the wave that
+     used to be here fought the pictures for attention. */
 
-  scallop: {
+  print: {
     enabled: true,
-    /** How far the wave swings out from the straight edge. */
-    amplitude: 7,
-    /** Roughly how long one bump is. Rounded to fit each edge evenly. */
-    period: 46,
-    /** The line drawn around the cut. */
-    strokeWidth: 5,
+    /** Thickness of the white edge around each photo. */
+    border: 9,
+    /** Corner rounding. Keep it small; a print is basically square. */
+    radius: 6,
   },
 
   /* ---------------- The checker rule ----------------
@@ -147,7 +147,7 @@ export const FRAME = {
     enabled: true,
     size: 18,
     /** Gap above and below the row. */
-    gap: 12,
+    gap: 18,
   },
 
   /* ---------------- The artwork ---------------- */
@@ -208,7 +208,7 @@ export const FRAME = {
     dateTracking: 0.04,
 
     /** Breathing room under the checker rule and above the trim. */
-    padTop: 10,
+    padTop: 6,
     padBottom: 26,
   },
 
@@ -218,13 +218,12 @@ export const FRAME = {
     background: "#191919",
     dot: "rgba(240, 78, 152, 0.09)",
     photoWell: "#101010",
-    photoKeyline: "rgba(244, 245, 245, 0.16)",
     rule: "#F04E98",
     /** The bands, and the type sitting on them. */
     band: "#F04E98",
     bandInk: "#191919",
-    /** The scalloped cut around each photo. */
-    scallop: "#F4F5F5",
+    /** The print border around each photo. */
+    print: "#F4F5F5",
     cap: "#191919",
     index: "rgba(240, 78, 152, 0.75)",
     checkerA: "#F04E98",

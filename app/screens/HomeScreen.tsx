@@ -19,6 +19,7 @@ import { CREDITS, EVENT } from "@/lib/config/event";
 export default function HomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <Cabinet
+      mark={false}
       status="System ready"
       deck={
         <Control

@@ -199,57 +199,6 @@ function roundRectPath(
   ctx.closePath();
 }
 
-/**
- * A rectangle with a wavy edge, the way a sticker is die-cut.
- *
- * Each side gets a whole number of half-waves so the wobble reaches
- * zero exactly at every corner — that's what stops the four edges
- * meeting at a kink. The bumps push *outward* only, so the cut
- * never eats into the photo.
- */
-function scallopPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  amplitude: number,
-  period: number,
-) {
-  const step = 3; // sampling, in pixels — small enough to look smooth
-  const bumps = (length: number) => Math.max(2, Math.round(length / period));
-
-  const across = bumps(w);
-  const down = bumps(h);
-
-  ctx.beginPath();
-
-  const edge = (
-    from: [number, number],
-    to: [number, number],
-    normal: [number, number],
-    count: number,
-    first: boolean,
-  ) => {
-    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
-    const steps = Math.max(2, Math.round(length / step));
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const swing = Math.sin(Math.PI * t * count) * amplitude;
-      const px = from[0] + (to[0] - from[0]) * t + normal[0] * swing;
-      const py = from[1] + (to[1] - from[1]) * t + normal[1] * swing;
-      if (first && i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-  };
-
-  edge([x, y], [x + w, y], [0, -1], across, true);
-  edge([x + w, y], [x + w, y + h], [1, 0], down, false);
-  edge([x + w, y + h], [x, y + h], [0, 1], across, false);
-  edge([x, y + h], [x, y], [-1, 0], down, false);
-
-  ctx.closePath();
-}
 
 /* ================================================================
    LOADING
@@ -311,7 +260,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const G = F.ground;
   const A = F.art;
   const B = F.band;
-  const S = F.scallop;
+  const Pr = F.print;
   const C = F.checker;
   const Ft = F.foot;
   const inks = F.colors.ink;
@@ -333,9 +282,17 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
      how tall a photo is at the width that's left. What remains after
      three of them splits between the head and the foot. */
 
-  const cellWidth = width - P.border * 2;
+  /*
+     The *print* is the unit, not the photo. A print is the photo plus
+     its white edge, and it's prints that get stacked and spaced — so
+     the gap you see between two photos is the gap in the config, and
+     the white never creeps onto the pink. */
+  const printLeft = P.border + P.gutter;
+  const printWidth = width - printLeft * 2;
+  const cellWidth = printWidth - Pr.border * 2;
   const cellHeight = Math.round(cellWidth / F.cellAspect);
-  const photosHeight = cellHeight * count + P.photoGap * (count - 1);
+  const printHeight = cellHeight + Pr.border * 2;
+  const photosHeight = printHeight * count + P.photoGap * (count - 1);
 
   const spare = Math.max(0, height - photosHeight);
   const headHeight = Math.round(spare * P.headShare);
@@ -345,6 +302,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   const centreX = width / 2;
   const innerLeft = P.border;
+  const photoLeft = printLeft + Pr.border;
 
   /* ---------------- Canvas ---------------- */
 
@@ -367,7 +325,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     for (let y = G.dotSpacing / 2; y < height; y += G.dotSpacing) {
       for (
         let x = innerLeft + G.dotSpacing / 2;
-        x < innerLeft + cellWidth;
+        x < width - P.border;
         x += G.dotSpacing
       ) {
         ctx.beginPath();
@@ -446,94 +404,33 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
      around it. The photo is already 16:9, so this is a clean fill. */
 
   images.forEach((image, index) => {
-    const y = photoTop + index * (cellHeight + P.photoGap);
+    const printTop = photoTop + index * (printHeight + P.photoGap);
+    const y = printTop + Pr.border;
+
+    if (Pr.enabled) {
+      ctx.fillStyle = F.colors.print;
+      roundRectPath(
+        ctx,
+        printLeft,
+        printTop,
+        printWidth,
+        printHeight,
+        Pr.radius + Pr.border,
+      );
+      ctx.fill();
+    }
 
     ctx.save();
-    if (S.enabled) {
-      scallopPath(ctx, innerLeft, y, cellWidth, cellHeight, S.amplitude, S.period);
-    } else {
-      roundRectPath(ctx, innerLeft, y, cellWidth, cellHeight, P.photoRadius);
-    }
+    roundRectPath(ctx, photoLeft, y, cellWidth, cellHeight, Pr.radius);
     ctx.clip();
 
     // Something dark behind, so a slow-loading photo never shows white.
     ctx.fillStyle = F.colors.photoWell;
-    ctx.fillRect(
-      innerLeft - S.amplitude,
-      y - S.amplitude,
-      cellWidth + S.amplitude * 2,
-      cellHeight + S.amplitude * 2,
-    );
+    ctx.fillRect(photoLeft, y, cellWidth, cellHeight);
 
-    ctx.drawImage(image, innerLeft, y, cellWidth, cellHeight);
+    ctx.drawImage(image, photoLeft, y, cellWidth, cellHeight);
     ctx.restore();
-
-    // The cut, drawn around the photo it just clipped.
-    if (S.enabled) {
-      scallopPath(ctx, innerLeft, y, cellWidth, cellHeight, S.amplitude, S.period);
-      ctx.strokeStyle = F.colors.scallop;
-      ctx.lineWidth = S.strokeWidth;
-      ctx.lineJoin = "round";
-      ctx.stroke();
-    } else if (P.photoKeyline > 0) {
-      ctx.strokeStyle = F.colors.photoKeyline;
-      ctx.lineWidth = P.photoKeyline;
-      roundRectPath(
-        ctx,
-        innerLeft + P.photoKeyline / 2,
-        y + P.photoKeyline / 2,
-        cellWidth - P.photoKeyline,
-        cellHeight - P.photoKeyline,
-        P.photoRadius,
-      );
-      ctx.stroke();
-    }
   });
-
-  /* ---------------- Stickers ----------------
-
-     Slapped on the corner of a photo, straddling its edge, the way a
-     booth badges a print. Drawn last of the photo pass so they sit
-     over the cut. */
-
-  if (A.enabled) {
-    for (const sticker of A.stickers) {
-      const box = DRAWINGS[sticker.name]?.box;
-      if (!box || sticker.photo >= count) continue;
-
-      const drawHeight = sticker.height;
-      const drawWidth = (box[0] / box[1]) * drawHeight;
-      const y = photoTop + sticker.photo * (cellHeight + P.photoGap);
-
-      // Widened deliberately: FRAME is `as const`, so `corner` narrows
-      // to only the corners currently in use and comparing against the
-      // other two becomes a type error. Keep all four legal here so a
-      // sticker can be moved in config without touching this file.
-      const corner: string = sticker.corner;
-      const right = corner === "topRight" || corner === "bottomRight";
-      const bottom = corner === "bottomLeft" || corner === "bottomRight";
-
-      // Measured from the photo's corner to the sticker's *centre*,
-      // not its edge — a tilted drawing's bounding box is wider than
-      // the drawing, and anchoring by edge pushes it off the picture
-      // and onto the band, where white line work disappears.
-      const anchorX = right
-        ? innerLeft + cellWidth - A.stickerInset.x
-        : innerLeft + A.stickerInset.x;
-      const anchorY = bottom
-        ? y + cellHeight - A.stickerInset.y
-        : y + A.stickerInset.y;
-
-      const cx = anchorX - drawWidth / 2;
-      const cy = anchorY - drawHeight / 2;
-
-      paintDrawing(ctx, sticker.name, cx, cy, drawHeight, {
-        inks,
-        glow: A.glow,
-        rotate: sticker.turn ? (sticker.turn * Math.PI) / 180 : undefined,
-      });
-    }
-  }
 
   /* ---------------- Foot ---------------- */
 
@@ -541,16 +438,16 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   if (C.enabled) {
     footCursor += C.gap;
-    const squares = Math.floor(cellWidth / C.size);
-    const inset = (cellWidth - squares * C.size) / 2;
+    const squares = Math.floor(printWidth / C.size);
+    const inset = (printWidth - squares * C.size) / 2;
     for (let i = 0; i < squares; i++) {
       ctx.fillStyle = i % 2 === 0 ? F.colors.checkerA : F.colors.checkerB;
-      ctx.fillRect(innerLeft + inset + i * C.size, footCursor, C.size, C.size);
+      ctx.fillRect(printLeft + inset + i * C.size, footCursor, C.size, C.size);
     }
     footCursor += C.size + C.gap;
   } else {
     ctx.fillStyle = F.colors.rule;
-    ctx.fillRect(innerLeft, footTop + 22, cellWidth, P.ruleHeight);
+    ctx.fillRect(printLeft, footTop + 22, printWidth, P.ruleHeight);
     footCursor = footTop + 22 + P.ruleHeight;
   }
 
@@ -561,7 +458,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     800,
     Ft.nameSize,
     Ft.nameTracking,
-    cellWidth,
+    printWidth,
     stack,
   );
   const nameLine = Math.round(nameSize * Ft.nameLineHeight);
@@ -571,11 +468,11 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   for (const word of venue.split(/\s+/)) {
     venueSize = Math.min(
       venueSize,
-      fitSize(ctx, word, 600, venueSize, Ft.venueTracking, cellWidth, stack),
+      fitSize(ctx, word, 600, venueSize, Ft.venueTracking, printWidth, stack),
     );
   }
   ctx.font = `600 ${venueSize}px ${stack}`;
-  const venueLines = wrapText(ctx, venue, cellWidth, venueSize * Ft.venueTracking);
+  const venueLines = wrapText(ctx, venue, printWidth, venueSize * Ft.venueTracking);
   const venueHeight =
     venueLines.length * venueSize + (venueLines.length - 1) * Ft.venueLineGap;
 
@@ -585,7 +482,7 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     700,
     Ft.dateSize,
     Ft.dateTracking,
-    cellWidth,
+    printWidth,
     stack,
   );
 
@@ -608,9 +505,9 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     );
     ctx.drawImage(
       logo,
-      Math.round(centreX - Math.min(logoWidth, cellWidth) / 2),
+      Math.round(centreX - Math.min(logoWidth, printWidth) / 2),
       Math.round(cursor),
-      Math.min(logoWidth, cellWidth),
+      Math.min(logoWidth, printWidth),
       Ft.logoHeight,
     );
   } else {
