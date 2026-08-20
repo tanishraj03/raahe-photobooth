@@ -40,6 +40,13 @@ const SAMPLE_EVERY_MS = 2600;
 const CAPTURE_RETRIES = 6;
 const CAPTURE_RETRY_MS = 130;
 
+/**
+ * How long the white overlay stays up. The keyframe holds at full
+ * white for a third of this, so it lands as a flash rather than a
+ * glow — change one and change `flash-pop` in globals.css with it.
+ */
+const FLASH_MS = 520;
+
 /** Where we are in the shoot. */
 type Phase =
   | { kind: "ready" }
@@ -105,9 +112,12 @@ export default function CameraScreen({
     mirroredRef.current = mirrored;
     phaseRef.current = phase;
     timerRef.current = timer;
-    // Only worth trying if the switch is on *and* this camera has a
-    // light. On everything else the screen does the work.
-    torchRef.current = flashOn && hasTorch;
+    // Attempt the lamp whenever the switch is on. `setTorch` asks the
+    // live track and resolves false if there's no light, so we don't
+    // gate on `hasTorch` here — that's React state, and after a flip to
+    // the rear camera it can still be reporting the front camera's
+    // answer at the moment the countdown reaches one.
+    torchRef.current = flashOn;
   });
 
   /* ---------------- Permission ---------------- */
@@ -238,7 +248,7 @@ export default function CameraScreen({
         // The lamp goes out whether it ever came on or not.
         void setTorch(false);
 
-        timers.push(setTimeout(() => setFlash(false), 380));
+        timers.push(setTimeout(() => setFlash(false), FLASH_MS));
         timers.push(
           setTimeout(() => {
             setPhase(
@@ -246,7 +256,7 @@ export default function CameraScreen({
                 ? { kind: "between", shot: phase.shot + 1 }
                 : { kind: "done" },
             );
-          }, 560),
+          }, FLASH_MS + 180),
         );
       };
 
@@ -376,7 +386,20 @@ export default function CameraScreen({
         </>
       }
     >
-      {/* The tube: a HUD across the top, the square the camera
+      {/* The shutter, over everything.
+          `fixed`, not `absolute`: a flash that lights only the little
+          preview box reads as a white rectangle on a dark screen. The
+          whole phone going off is what a real booth does, and it's
+          what makes people blink and laugh. */}
+      {flash && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-[100] bg-white"
+          style={{ animation: `flash-pop ${FLASH_MS}ms ease-out forwards` }}
+        />
+      )}
+
+      {/* The tube: a HUD across the top, the frame the camera
           actually captures in the middle, the filter bank below. */}
       <div className="flex h-full flex-col">
         {/* ---------- HUD ---------- */}
@@ -471,15 +494,6 @@ export default function CameraScreen({
                   Next up
                 </span>
               </span>
-            )}
-
-            {/* Shutter */}
-            {flash && (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 z-20 bg-white"
-                style={{ animation: "flash-pop 380ms ease-out forwards" }}
-              />
             )}
 
             {/* Flip — thumb-high and live for the whole shoot. Turning

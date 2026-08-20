@@ -170,7 +170,7 @@ button {
  *   --machine-sides   everything either side of it
  */
 .app-frame {
-  --machine-chrome: 23rem;
+  --machine-chrome: 23.7rem;
   --machine-sides: 3.5rem;
 
   position: relative;
@@ -191,7 +191,7 @@ button {
  */
 @media (min-width: 34rem) {
   .app-frame {
-    --machine-chrome: 24.5rem;
+    --machine-chrome: 25.2rem;
     --machine-sides: 5rem;
 
     max-width: min(
@@ -884,13 +884,19 @@ button {
   animation: cell-land 0.5s var(--ease-spring) both;
 }
 
-/* Camera flash. */
+/* Camera flash.
+   Snaps to full white, holds long enough to read as a real flash
+   going off, then falls away. The hold is the whole point — a pure
+   fade reads as a glow, not a flash. */
 @keyframes flash-pop {
   0% {
     opacity: 0;
   }
-  14% {
-    opacity: 0.92;
+  6% {
+    opacity: 1;
+  }
+  34% {
+    opacity: 1;
   }
   100% {
     opacity: 0;

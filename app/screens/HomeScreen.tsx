@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/BrandMark";
 import Cabinet from "@/components/Cabinet";
 import Control from "@/components/Control";
 import Marquee from "@/components/Marquee";
@@ -72,6 +73,17 @@ export default function HomeScreen({ onStart }: { onStart: () => void }) {
 
         <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-center px-5 py-4 lg:px-10 lg:py-8">
           <div>
+            {/* The mark leads. It used to appear only as a 15px line on
+                the name plate, which is signage, not branding — on the
+                attract screen it should be the first thing you see.
+                Two sizes because BrandMark sets its height inline, so a
+                `lg:` class can't override it. */}
+            <BrandMark height={54} className="animate-rise delay-1 mb-6 lg:hidden" />
+            <BrandMark
+              height={88}
+              className="animate-rise delay-1 mb-9 hidden lg:block"
+            />
+
             <p className="t-label animate-rise delay-2 flex items-center gap-2.5 text-pink lg:text-[13px]">
               <span aria-hidden="true" className="lamp lamp-on animate-blink" />
               {EVENT.eyebrow}

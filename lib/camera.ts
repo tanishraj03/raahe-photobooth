@@ -108,16 +108,25 @@ function constraintsFor(
   facing: "user" | "environment",
   deviceId?: string,
 ): MediaStreamConstraints[] {
-  const base: MediaTrackConstraints[] = deviceId
-    ? [{ deviceId: { exact: deviceId }, width: { ideal: 1920 } }, { deviceId }]
-    : [
-        {
-          facingMode: { ideal: facing },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        { facingMode: { ideal: facing } },
-      ];
+  if (deviceId) {
+    // A named camera has no sane fallback. Dropping to `{}` here would
+    // hand back whichever camera the browser felt like — usually the
+    // one we were already on — and `open` would report success for a
+    // switch that never happened.
+    return [
+      { deviceId: { exact: deviceId }, width: { ideal: 1920 } },
+      { deviceId: { exact: deviceId } },
+    ].map((video) => ({ video, audio: false }));
+  }
+
+  const base: MediaTrackConstraints[] = [
+    {
+      facingMode: { ideal: facing },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    },
+    { facingMode: { ideal: facing } },
+  ];
 
   return [...base, {}].map((video) => ({
     video: Object.keys(video).length ? video : true,
@@ -210,9 +219,21 @@ export function useCamera() {
             devicesRef.current = cams;
             setCameraCount(cams.length);
 
-            const activeId = track?.getSettings().deviceId;
-            const found = cams.findIndex((c) => c.deviceId === activeId);
-            indexRef.current = found >= 0 ? found : 0;
+            const track0 = stream.getVideoTracks()[0];
+            // Safari doesn't always put a deviceId on the track. Fall
+            // back to the one we asked for, then to the label.
+            const activeId = track0?.getSettings().deviceId || deviceId;
+            let found = activeId
+              ? cams.findIndex((c) => c.deviceId === activeId)
+              : -1;
+            if (found < 0 && track0?.label) {
+              found = cams.findIndex((c) => c.label === track0.label);
+            }
+            // Only move the pointer when we actually know where we are.
+            // Snapping to 0 on an unknown is what made the first tap of
+            // "switch camera" reopen the camera it was already on, so it
+            // took two taps to appear to work.
+            if (found >= 0) indexRef.current = found;
           } catch {
             devicesRef.current = [];
             setCameraCount(0);

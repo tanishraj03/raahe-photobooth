@@ -81,7 +81,7 @@ export const FRAME = {
      * How the space left over above and below the photos is split.
      * The foot carries four lines of type, so it gets most of it.
      */
-    headShare: 0.22,
+    headShare: 0.12,
     /** Corner rounding on each photo, inside the scallop. */
     photoRadius: 4,
     /** A hairline drawn tight around each photo. */
@@ -184,26 +184,12 @@ export const FRAME = {
     ],
   },
 
-  /* ---------------- The head ---------------- */
-
-  head: {
-    /** The booth's plate: a pink pill with its name in it. */
-    plateHeight: 44,
-    plateRadius: 22,
-    platePadX: 26,
-    capSize: 19,
-    capTracking: 0.22,
-    /** The small numbers beside each photo. */
-    indexSize: 17,
-    indexTracking: 0.18,
-  },
-
   /* ---------------- The foot ---------------- */
 
   foot: {
     /** The mark. Its width follows its own proportions. */
-    logoHeight: 68,
-    logoGap: 16,
+    logoHeight: 96,
+    logoGap: 22,
 
     /** Event name, fitted to one line across the inner column. */
     nameSize: 96,

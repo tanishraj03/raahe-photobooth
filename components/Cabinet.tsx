@@ -65,8 +65,8 @@ export default function Cabinet({
           {/* On a kiosk the mark sits up on the hood beside the lens,
               where it would be silkscreened on a real cabinet. */}
           <BrandMark
-            height={20}
-            className="hidden opacity-80 lg:block"
+            height={34}
+            className="hidden shrink-0 lg:block"
           />
 
           <span
@@ -92,7 +92,7 @@ export default function Cabinet({
         {/* ---------- Name plate (phone only; the kiosk carries it
              on the hood row above) ---------- */}
         <div className="flex items-center justify-between gap-3 pt-2 pb-2.5 lg:hidden">
-          <BrandMark height={15} className="opacity-80" />
+          <BrandMark height={26} className="shrink-0" />
 
           <div className="flex items-center gap-2">
             <span

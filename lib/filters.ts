@@ -78,6 +78,18 @@ export const FILTERS: Filter[] = [
     css: "",
   },
   {
+    id: "noir",
+    name: "Noir",
+    css: "grayscale(1) contrast(1.42) brightness(0.96)",
+    washes: [vignette(0.52, 0.35)],
+    grain: 0.3,
+  },
+  {
+    id: "mono",
+    name: "Mono",
+    css: "grayscale(1) contrast(1.04) brightness(1.06)",
+  },
+  {
     id: "punch",
     name: "Punch",
     css: "saturate(1.34) contrast(1.16)",
@@ -206,18 +218,6 @@ export const FILTERS: Filter[] = [
       vignette(0.62, 0.3),
     ],
     grain: 0.12,
-  },
-  {
-    id: "noir",
-    name: "Noir",
-    css: "grayscale(1) contrast(1.42) brightness(0.96)",
-    washes: [vignette(0.52, 0.35)],
-    grain: 0.3,
-  },
-  {
-    id: "mono",
-    name: "Mono",
-    css: "grayscale(1) contrast(1.04) brightness(1.06)",
   },
 ];
 

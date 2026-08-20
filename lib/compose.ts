@@ -313,7 +313,6 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const B = F.band;
   const S = F.scallop;
   const C = F.checker;
-  const H = F.head;
   const Ft = F.foot;
   const inks = F.colors.ink;
   const stack = fontStack();
@@ -432,43 +431,14 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   /* ---------------- Head ----------------
 
-     A pink plate with the booth's name on it, centred in the column.
-     The event's own name is saved for the foot, set large. */
+     Nothing. The photos simply begin.
 
-  const cap = `${LOGO_FALLBACK_TEXT} · photobooth`.toUpperCase();
-  const capSize = fitSize(
-    ctx,
-    cap,
-    600,
-    H.capSize,
-    H.capTracking,
-    cellWidth - H.platePadX * 2 - 40,
-    stack,
-  );
-  ctx.font = `600 ${capSize}px ${stack}`;
-  const capTracking = capSize * H.capTracking;
-  const capWidth = measure(ctx, cap, capTracking);
+     A plate used to sit here with the booth's name on it, and a rule
+     under that. Both went: the bands already say RAAHE the whole way
+     down, so the top was repeating itself, and once the plate went the
+     rule had nothing left to underline. The mark is in the foot, set
+     large, which is the one place it isn't competing with a photo. */
 
-  const plateWidth = capWidth + H.platePadX * 2;
-  const plateHeight = Math.min(H.plateHeight, headHeight - 34);
-  const plateTop = Math.max(12, (headHeight - 26 - plateHeight) / 2);
-
-  ctx.fillStyle = F.colors.band;
-  roundRectPath(
-    ctx,
-    centreX - plateWidth / 2,
-    plateTop,
-    plateWidth,
-    plateHeight,
-    Math.min(H.plateRadius, plateHeight / 2),
-  );
-  ctx.fill();
-
-  ctx.fillStyle = F.colors.cap;
-  drawText(ctx, cap, centreX - capWidth / 2, plateTop + plateHeight / 2, capTracking);
-
-  ctx.fillStyle = F.colors.rule;
-  ctx.fillRect(innerLeft, headHeight - 28, cellWidth, P.ruleHeight);
 
   /* ---------------- Photos ----------------
 

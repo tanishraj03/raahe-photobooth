@@ -11,7 +11,7 @@ import { LOGO_SOURCES, LOGO_FALLBACK_TEXT } from "@/lib/config/event";
  * version of the mark.
  */
 export default function BrandMark({
-  height = 28,
+  height = 34,
   className = "",
 }: {
   height?: number;
