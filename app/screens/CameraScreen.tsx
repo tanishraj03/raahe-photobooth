@@ -485,8 +485,10 @@ export default function CameraScreen({
       )}
 
       {/* The tube: a HUD across the top, the frame the camera
-          actually captures in the middle, the filter bank below. */}
-      <div className="flex h-full flex-col">
+          actually captures in the middle, the filter bank below.
+          `relative`, because the permission and error panels are
+          positioned against this whole area rather than the preview. */}
+      <div className="relative flex h-full flex-col">
         {/* ---------- HUD ---------- */}
         <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-2 pb-1">
           <button
@@ -615,107 +617,122 @@ export default function CameraScreen({
               </button>
             )}
 
-            {/* ---------- Overlays: permission, loading, failure ---------- */}
-            {gate === "ask" && status === "idle" && (
-              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95 p-5 text-center">
-                <div>
-                  <p className="t-label text-pink">Camera</p>
-                  <h2 className="t-display mt-3 text-[2rem] text-paper">
-                    step into
-                    <br />
-                    the booth
-                  </h2>
-                  <p className="t-body mx-auto mt-3 max-w-[26ch] text-[0.9rem] text-paper/60">
-                    We need your camera to take the three photos. They stay on
-                    your phone — nothing is uploaded.
-                  </p>
+          </div>
+        </main>
 
-                  {/* Said before they tap, not after it fails. Most
-                      in-app browsers won't even show the prompt, and
-                      someone who scanned the QR from inside Instagram
-                      has no reason to suspect that's the problem. */}
-                  {isInAppBrowser() && (
-                    <p className="t-body mx-auto mt-3 max-w-[28ch] text-[0.8rem] text-pink">
-                      You&apos;re in another app&apos;s browser. If the camera
-                      doesn&apos;t start, open this page in Safari or Chrome.
-                    </p>
+        {/* ---------- Overlays: permission, loading, failure ----------
+
+             These cover the whole screen, not the preview box.
+
+             They used to live inside `.preview-box`, which is
+             `overflow-hidden`. That was survivable while the preview was
+             square, but a 16:9 box on a phone is short — and the
+             permission panel is taller than it. The "Turn on camera"
+             button was being clipped off the bottom edge, so people
+             couldn't tap the one control that triggers the browser
+             prompt. Nothing was wrong with the prompt; it was never
+             being asked for.
+
+             `overflow-y-auto` on the panels, so this can't come back on
+             a small screen or at a large text size. */}
+          {gate === "ask" && status === "idle" && (
+            <div className="animate-fade absolute inset-0 z-40 grid place-items-center overflow-y-auto bg-black/95 px-5 py-8 text-center">
+              <div>
+                <p className="t-label text-pink">Camera</p>
+                <h2 className="t-display mt-3 text-[2rem] text-paper">
+                  step into
+                  <br />
+                  the booth
+                </h2>
+                <p className="t-body mx-auto mt-3 max-w-[26ch] text-[0.9rem] text-paper/60">
+                  We need your camera to take the three photos. They stay on
+                  your phone — nothing is uploaded.
+                </p>
+
+                {/* Said before they tap, not after it fails. Most
+                    in-app browsers won't even show the prompt, and
+                    someone who scanned the QR from inside Instagram
+                    has no reason to suspect that's the problem. */}
+                {isInAppBrowser() && (
+                  <p className="t-body mx-auto mt-3 max-w-[28ch] text-[0.8rem] text-pink">
+                    You&apos;re in another app&apos;s browser. If the camera
+                    doesn&apos;t start, open this page in Safari or Chrome.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGate("open");
+                    void open();
+                  }}
+                  className="control control-lit t-machine relative mt-6 overflow-hidden px-6 py-3.5 text-[1.1rem]"
+                >
+                  <span className="sheen" aria-hidden="true" />
+                  <span className="relative">Turn on camera</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {status === "starting" && (
+            <div className="animate-fade absolute inset-0 z-40 grid place-items-center bg-black/95">
+              <div className="w-40 text-center">
+                <p className="t-label text-paper/50">Opening camera</p>
+                <span className="relative mt-3 block h-px w-full overflow-hidden bg-paper/15">
+                  <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
+                </span>
+              </div>
+            </div>
+          )}
+
+          {status === "error" && problem && (
+            <div className="animate-fade absolute inset-0 z-40 grid place-items-center overflow-y-auto bg-black/95 px-5 py-8 text-center">
+              <div>
+                <h2 className="t-display text-[1.9rem] text-pink">
+                  {CAMERA_MESSAGES[problem].title}
+                </h2>
+                <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.85rem] text-paper/60">
+                  {CAMERA_MESSAGES[problem].body}
+                </p>
+
+                {/* Where the setting actually lives, on this phone.
+                    "Open site settings" is useless advice if you
+                    don't already know where they are. */}
+                {problem === "denied" && (
+                  <p className="t-body mx-auto mt-2.5 max-w-[32ch] text-[0.8rem] text-paper/40">
+                    {permissionHint()}
+                  </p>
+                )}
+
+                <div className="mt-5 flex items-center justify-center gap-2.5">
+                  {problem === "webview" ? (
+                    <button
+                      type="button"
+                      onClick={() => void copyLink()}
+                      className="control control-lit t-machine px-5 py-3 text-[1rem]"
+                    >
+                      {copied ? "Copied" : "Copy link"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void open()}
+                      className="control control-lit t-machine px-5 py-3 text-[1rem]"
+                    >
+                      Try again
+                    </button>
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      setGate("open");
-                      void open();
-                    }}
-                    className="control control-lit t-machine relative mt-6 overflow-hidden px-6 py-3.5 text-[1.1rem]"
+                    onClick={onExit}
+                    className="control t-machine px-5 py-3 text-[1rem]"
                   >
-                    <span className="sheen" aria-hidden="true" />
-                    <span className="relative">Turn on camera</span>
+                    Back
                   </button>
                 </div>
               </div>
-            )}
-
-            {status === "starting" && (
-              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95">
-                <div className="w-40 text-center">
-                  <p className="t-label text-paper/50">Opening camera</p>
-                  <span className="relative mt-3 block h-px w-full overflow-hidden bg-paper/15">
-                    <span className="animate-track absolute inset-y-0 left-0 w-1/4 bg-pink" />
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {status === "error" && problem && (
-              <div className="animate-fade absolute inset-0 z-30 grid place-items-center bg-black/95 p-5 text-center">
-                <div>
-                  <h2 className="t-display text-[1.9rem] text-pink">
-                    {CAMERA_MESSAGES[problem].title}
-                  </h2>
-                  <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.85rem] text-paper/60">
-                    {CAMERA_MESSAGES[problem].body}
-                  </p>
-
-                  {/* Where the setting actually lives, on this phone.
-                      "Open site settings" is useless advice if you
-                      don't already know where they are. */}
-                  {problem === "denied" && (
-                    <p className="t-body mx-auto mt-2.5 max-w-[32ch] text-[0.8rem] text-paper/40">
-                      {permissionHint()}
-                    </p>
-                  )}
-
-                  <div className="mt-5 flex items-center justify-center gap-2.5">
-                    {problem === "webview" ? (
-                      <button
-                        type="button"
-                        onClick={() => void copyLink()}
-                        className="control control-lit t-machine px-5 py-3 text-[1rem]"
-                      >
-                        {copied ? "Copied" : "Copy link"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void open()}
-                        className="control control-lit t-machine px-5 py-3 text-[1rem]"
-                      >
-                        Try again
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={onExit}
-                      className="control t-machine px-5 py-3 text-[1rem]"
-                    >
-                      Back
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
+            </div>
+          )}
 
         {/* ---------- Filter bank ---------- */}
         <div className="shrink-0 pt-1">
