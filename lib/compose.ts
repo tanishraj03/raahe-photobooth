@@ -2,6 +2,7 @@
 
 import { EVENT, LOGO_FALLBACK_TEXT, LOGO_SOURCES } from "@/lib/config/event";
 import { FRAME } from "@/lib/config/frame";
+import { grainTile } from "@/lib/grain";
 import { DRAWINGS, paintDrawing } from "@/lib/illustrations";
 
 /* ================================================================
@@ -174,6 +175,117 @@ function wrapText(
    SHAPES
    ================================================================ */
 
+/**
+ * Deterministic noise for one print's edge.
+ *
+ * Seeded off the print's index so a strip tears the same way every
+ * time it's drawn — but each of the three tears differently, which is
+ * the whole point. A shared `Math.random()` would reshuffle the paper
+ * on every re-render.
+ */
+function tornOffsets(count: number, seed: number, amplitude: number): number[] {
+  let state = (seed * 2654435761 + 12345) >>> 0;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+
+  const raw: number[] = [];
+  for (let i = 0; i < count; i++) {
+    // Two rolls, not one: the first is the direction and reach, the
+    // second varies how deep this particular bite goes. With a single
+    // roll every notch is about the same size and the edge reads as a
+    // ripple rather than a tear.
+    const reach = random() * 2 - 1;
+    const bite = 0.3 + random() * 0.7;
+    raw.push(reach * bite * amplitude);
+  }
+
+  // One light smoothing pass, wrapping at the ends so the last point
+  // meets the first cleanly. Weighted toward the point itself, so it
+  // takes the static off without flattening the tear back to a wave.
+  return raw.map(
+    (value, i) =>
+      (raw[(i - 1 + count) % count] + value * 3 + raw[(i + 1) % count]) / 5,
+  );
+}
+
+/** A rectangle whose edges have been torn rather than cut. */
+function tornRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  amplitude: number,
+  step: number,
+  seed: number,
+) {
+  const across = Math.max(4, Math.round(w / step));
+  const down = Math.max(4, Math.round(h / step));
+  const total = (across + down) * 2;
+  const offset = tornOffsets(total, seed, amplitude);
+
+  const points: [number, number][] = [];
+  let k = 0;
+
+  // Every offset pushes *outward*, so the tear never eats the photo.
+  for (let i = 0; i < across; i++)
+    points.push([x + (w * i) / across, y - offset[k++]]);
+  for (let i = 0; i < down; i++)
+    points.push([x + w + offset[k++], y + (h * i) / down]);
+  for (let i = 0; i < across; i++)
+    points.push([x + w - (w * i) / across, y + h + offset[k++]]);
+  for (let i = 0; i < down; i++)
+    points.push([x - offset[k++], y + h - (h * i) / down]);
+
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+  ctx.closePath();
+}
+
+/**
+ * Film grain over the ground.
+ *
+ * Deliberately not `paintGrain` from lib/grain.ts. That one composites
+ * with `overlay`, which is right over a photograph but does close to
+ * nothing over near-black — overlay preserves darks by design, and this
+ * strip's ground is #191919. Measured, it moved the background by less
+ * than half a level. Painting the same shared tile straight on at a low
+ * alpha is what actually puts texture on black; it lifts the ground a
+ * few levels, which is what film does anyway.
+ */
+function paintGroundGrain(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  alpha: number,
+  repeats: number,
+) {
+  const tile = grainTile();
+  if (!tile || alpha <= 0) return;
+
+  const pattern = ctx.createPattern(tile.canvas, "repeat");
+  if (!pattern) return;
+
+  // Sized in repeats rather than pixels, for the same reason the photo
+  // grain is: a speck tuned at one size vanishes at another.
+  const scale = w / repeats / tile.canvas.width;
+  try {
+    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
+  } catch {
+    // Older browsers can't transform a pattern. Finer grain than asked
+    // for is still grain.
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
 function roundRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -261,7 +373,6 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
   const A = F.art;
   const B = F.band;
   const Pr = F.print;
-  const C = F.checker;
   const Ft = F.foot;
   const inks = F.colors.ink;
   const stack = fontStack();
@@ -387,6 +498,14 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     paintBand(width - P.border / 2, 1);
   }
 
+  /* ---------------- Film grain ----------------
+
+     Over the ground and the bands, and *before* the prints go down, so
+     the photos stay exactly as the shutter took them. This is the only
+     thing on the strip that isn't a flat colour or a photograph. */
+
+  if (G.grain > 0) paintGroundGrain(ctx, width, height, G.grain, G.grainRepeats);
+
   /* ---------------- Head ----------------
 
      Nothing. The photos simply begin.
@@ -409,14 +528,27 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
     if (Pr.enabled) {
       ctx.fillStyle = F.colors.print;
-      roundRectPath(
-        ctx,
-        printLeft,
-        printTop,
-        printWidth,
-        printHeight,
-        Pr.radius + Pr.border,
-      );
+      if (Pr.torn) {
+        tornRectPath(
+          ctx,
+          printLeft,
+          printTop,
+          printWidth,
+          printHeight,
+          Pr.tornAmplitude,
+          Pr.tornStep,
+          index + 1,
+        );
+      } else {
+        roundRectPath(
+          ctx,
+          printLeft,
+          printTop,
+          printWidth,
+          printHeight,
+          Pr.radius + Pr.border,
+        );
+      }
       ctx.fill();
     }
 
@@ -434,22 +566,8 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
 
   /* ---------------- Foot ---------------- */
 
-  let footCursor = footTop;
+  const footCursor = footTop;
 
-  if (C.enabled) {
-    footCursor += C.gap;
-    const squares = Math.floor(printWidth / C.size);
-    const inset = (printWidth - squares * C.size) / 2;
-    for (let i = 0; i < squares; i++) {
-      ctx.fillStyle = i % 2 === 0 ? F.colors.checkerA : F.colors.checkerB;
-      ctx.fillRect(printLeft + inset + i * C.size, footCursor, C.size, C.size);
-    }
-    footCursor += C.size + C.gap;
-  } else {
-    ctx.fillStyle = F.colors.rule;
-    ctx.fillRect(printLeft, footTop + 22, printWidth, P.ruleHeight);
-    footCursor = footTop + 22 + P.ruleHeight;
-  }
 
   const name = EVENT.name.toLowerCase();
   const nameSize = fitSize(
@@ -495,9 +613,10 @@ export async function composeStrip(photos: string[]): Promise<Strip> {
     Ft.venueGap +
     dateSize;
 
-  // Centred in what the foot has left under the checker rule.
-  const blockRoom = height - Ft.padBottom - (footCursor + Ft.padTop);
-  let cursor = footCursor + Ft.padTop + Math.max(0, (blockRoom - blockHeight) / 2);
+  // Hung from the top of the foot, then clamped so it can never run
+  // into the trim if the event name wraps to two lines.
+  const lowest = height - Ft.padBottom - blockHeight;
+  let cursor = Math.min(footCursor + Ft.padTop, lowest);
 
   if (logo) {
     const logoWidth = Math.round(

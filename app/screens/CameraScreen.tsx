@@ -104,6 +104,12 @@ export default function CameraScreen({
   const takenRef = useRef<Set<number>>(new Set());
   const timerRef = useRef(timer);
   const torchRef = useRef(false);
+  /**
+   * Whether the camera's own lamp actually came on for this shot.
+   * `setTorch` resolves to what really happened, so this is the truth
+   * rather than what we hoped for — and the screen flash keys off it.
+   */
+  const torchLitRef = useRef(false);
 
   // Declared before the countdown effect so the refs are fresh by the
   // time it reads them.
@@ -210,7 +216,14 @@ export default function CameraScreen({
       // few hundred milliseconds to reach full brightness, so one
       // second of lead was cutting it fine — the shutter could land
       // while it was still ramping and the photo came out unlit.
-      if (phase.n === 2 && torchRef.current) void setTorch(true);
+      if (phase.n === 2) {
+        torchLitRef.current = false;
+        if (torchRef.current) {
+          void setTorch(true).then((lit) => {
+            torchLitRef.current = lit;
+          });
+        }
+      }
 
       const tick = setTimeout(() => {
         setPhase(
@@ -234,7 +247,11 @@ export default function CameraScreen({
         // Assert the lamp again. If the countdown's attempt failed —
         // a flip mid-count rebuilds the track, and the new one starts
         // dark — this is the last chance to light it.
-        if (torchRef.current) void setTorch(true);
+        if (torchRef.current && !torchLitRef.current) {
+          void setTorch(true).then((lit) => {
+            torchLitRef.current = lit;
+          });
+        }
 
         const video = videoRef.current;
         const shot = video
@@ -249,11 +266,18 @@ export default function CameraScreen({
           return;
         }
 
-        setFlash(true);
+        // The screen only flashes when the camera's own lamp didn't.
+        // On the rear camera with a working lamp, the light comes from
+        // the phone's flash where it belongs — blasting the screen
+        // white as well would just blind the person holding it, and
+        // the screen is behind them anyway.
+        if (!torchLitRef.current) setFlash(true);
+
         if (shot) setPhotos((previous) => [...previous, shot]);
 
         // The lamp goes out whether it ever came on or not.
         void setTorch(false);
+        torchLitRef.current = false;
 
         timers.push(setTimeout(() => setFlash(false), FLASH_MS));
         timers.push(
@@ -363,7 +387,7 @@ export default function CameraScreen({
                   value={flashOn ? "on" : "off"}
                   onChange={(next) => setFlashOn(next === "on")}
                   disabled={running}
-                  note={hasTorch ? "Lamp + screen" : "Screen"}
+                  note={hasTorch ? "Lamp" : "Screen"}
                 />
               </div>
             </div>

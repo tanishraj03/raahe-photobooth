@@ -23,7 +23,6 @@
  *      │O │ ╭──────────────────╮ │ E│
  *      │P │ │      photo 3     │ │ P│
  *      │E │ ╰──────────────────╯ │ O│
- *      │▓▓├───▪▫▪▫▪▫▪▫▪▫▪▫▪▫▪▫───┤▓▓│   checker rule
  *      │▓▓│      [ raahe logo ]  │▓▓│
  *      │▓▓│     RAAHE OPEN MIC   │▓▓│
  *      │▓▓│   STARBUCKS VITTAL…  │▓▓│
@@ -114,6 +113,14 @@ export const FRAME = {
   /* ---------------- Grain and ground ---------------- */
 
   ground: {
+    /**
+     * Film grain over the background and the bands, painted before the
+     * prints go down so the photos stay clean. Very light — it should
+     * take the flatness off the black, nothing more.
+     */
+    grain: 0.05,
+    /** How many times the noise tile repeats across the width. */
+    grainRepeats: 9,
     /** Faint dot field over the inner column. Set size to 0 to drop. */
     dotSize: 2.4,
     dotSpacing: 44,
@@ -129,25 +136,22 @@ export const FRAME = {
 
   /* ---------------- The photo frames ----------------
      A white print border, the way a photo comes out of a booth with a
-     margin around it. Square corners, barely softened — the wave that
-     used to be here fought the pictures for attention. */
+     margin around it — but torn off rather than guillotined. */
 
   print: {
     enabled: true,
     /** Thickness of the white edge around each photo. */
-    border: 9,
-    /** Corner rounding. Keep it small; a print is basically square. */
-    radius: 6,
-  },
-
-  /* ---------------- The checker rule ----------------
-     One row of alternating squares between the photos and the foot. */
-
-  checker: {
-    enabled: true,
-    size: 18,
-    /** Gap above and below the row. */
-    gap: 18,
+    border: 11,
+    /** Rounding on the photo's own corners, inside the paper. */
+    radius: 4,
+    /**
+     * The tear. Keep `amplitude` small — this should read as paper
+     * that was ripped, not as a firework. `step` is the distance
+     * between tear points: smaller is a finer, more frequent tear.
+     */
+    torn: true,
+    tornAmplitude: 5.5,
+    tornStep: 13,
   },
 
   /* ---------------- The artwork ---------------- */
@@ -155,7 +159,7 @@ export const FRAME = {
   art: {
     /**
      * The corner stickers. Off: the bands, the scalloped cuts and the
-     * checker rule carry the strip on their own, and a drawing sat on
+     * torn paper edges carry the strip on their own, and a drawing sat on
      * someone's face is a drawing in the way. Set true to bring them
      * back — everything below is still wired up.
      */
@@ -204,11 +208,16 @@ export const FRAME = {
     venueGap: 12,
 
     /** Date. */
-    dateSize: 28,
+    dateSize: 30,
     dateTracking: 0.04,
 
-    /** Breathing room under the checker rule and above the trim. */
-    padTop: 6,
+    /**
+     * The block hangs from the top of the foot rather than floating in
+     * the middle of it, so the mark sits up close to the last photo
+     * instead of drifting toward the trim.
+     */
+    padTop: 36,
+    /** Never allowed closer to the trim than this. */
     padBottom: 26,
   },
 
@@ -226,8 +235,6 @@ export const FRAME = {
     print: "#F4F5F5",
     cap: "#191919",
     index: "rgba(240, 78, 152, 0.75)",
-    checkerA: "#F04E98",
-    checkerB: "rgba(244, 245, 245, 0.78)",
     cropMark: "rgba(240, 78, 152, 0.35)",
     title: "#F4F5F5",
     venue: "rgba(244, 245, 245, 0.55)",
