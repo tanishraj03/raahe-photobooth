@@ -13,8 +13,53 @@ export type CameraProblem =
   | "notfound"
   | "inuse"
   | "insecure"
+  | "webview"
   | "unsupported"
   | "unknown";
+
+/* ================================================================
+   WHERE ARE WE RUNNING
+
+   A QR code at a venue doesn't always open in a real browser. Scan it
+   from inside Instagram, Snapchat or WhatsApp and the link opens in
+   that app's own in-app browser, and those either refuse the camera
+   outright or never show the permission prompt at all. Nothing we do
+   in JavaScript can grant it — the only way out is to reopen the page
+   in Safari or Chrome, so we have to recognise the situation and say
+   so plainly rather than showing a generic failure.
+   ================================================================ */
+
+const IN_APP_BROWSERS =
+  /FBAN|FBAV|FB_IAB|FB4A|Instagram|Line\/|Snapchat|Twitter|LinkedInApp|Pinterest|TikTok|musical_ly|WhatsApp|MicroMessenger|GSA\//i;
+
+export function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return IN_APP_BROWSERS.test(navigator.userAgent || "");
+}
+
+export type Platform = "ios" | "android" | "other";
+
+export function platform(): Platform {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent || "";
+  // iPadOS reports itself as a Mac, so the touch check catches it.
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "other";
+}
+
+/** Where this particular browser hides the camera permission. */
+export function permissionHint(): string {
+  switch (platform()) {
+    case "ios":
+      return "In Safari, tap the AA button at the left of the address bar, choose Website Settings, and set Camera to Allow. Then reload.";
+    case "android":
+      return "In Chrome, tap the lock or sliders icon at the left of the address bar, open Permissions, and turn Camera on. Then reload.";
+    default:
+      return "Open the site settings from the icon at the left of the address bar, allow the camera, then reload.";
+  }
+}
 
 export const CAMERA_MESSAGES: Record<
   CameraProblem,
@@ -40,6 +85,11 @@ export const CAMERA_MESSAGES: Record<
     body: "Cameras only work over https. Open the photobooth using its https address.",
     action: "Try again",
   },
+  webview: {
+    title: "open in your browser",
+    body: "You've opened this inside another app, and apps like Instagram and WhatsApp don't let a page use the camera. Tap the … menu and choose Open in Browser — or copy the link and paste it into Safari or Chrome.",
+    action: "Copy link",
+  },
   unsupported: {
     title: "browser can't do this",
     body: "This browser can't open the camera. Chrome or Safari will work.",
@@ -62,7 +112,11 @@ function classify(err: unknown): CameraProblem {
     case "NotAllowedError":
     case "PermissionDeniedError":
     case "SecurityError":
-      return "denied";
+      // Inside an in-app browser this is almost never a real refusal —
+      // the webview blocked it without ever asking. Saying "you denied
+      // this" would send someone hunting through settings that won't
+      // help.
+      return isInAppBrowser() ? "webview" : "denied";
     case "NotFoundError":
     case "DevicesNotFoundError":
     case "OverconstrainedError":
@@ -199,7 +253,16 @@ export function useCamera() {
       if (typeof navigator === "undefined") return false;
 
       if (!navigator.mediaDevices?.getUserMedia) {
-        setProblem(window.isSecureContext ? "unsupported" : "insecure");
+        // No camera API at all. Order matters: an in-app browser is by
+        // far the likeliest reason on a phone, and it's the only one
+        // the person can actually do something about.
+        setProblem(
+          isInAppBrowser()
+            ? "webview"
+            : !window.isSecureContext
+              ? "insecure"
+              : "unsupported",
+        );
         setStatus("error");
         return false;
       }

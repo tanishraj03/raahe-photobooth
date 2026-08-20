@@ -9,7 +9,12 @@ import FilterRail from "@/components/FilterRail";
 import Selector from "@/components/Selector";
 import StripProgress from "@/components/StripProgress";
 import { captureFrame } from "@/lib/capture";
-import { CAMERA_MESSAGES, useCamera } from "@/lib/camera";
+import {
+  CAMERA_MESSAGES,
+  isInAppBrowser,
+  permissionHint,
+  useCamera,
+} from "@/lib/camera";
 import { DEFAULT_FILTER_ID, getFilter } from "@/lib/filters";
 
 const TOTAL_SHOTS = 3;
@@ -46,6 +51,14 @@ const CAPTURE_RETRY_MS = 130;
  * glow — change one and change `flash-pop` in globals.css with it.
  */
 const FLASH_MS = 520;
+
+/**
+ * How long we'll wait for `navigator.permissions` before giving up and
+ * showing the button anyway. The query is only an optimisation — it
+ * lets a returning visitor skip the intro — so it is never allowed to
+ * stand between someone and the prompt.
+ */
+const PERMISSION_CHECK_MS = 1500;
 
 /** Where we are in the shoot. */
 type Phase =
@@ -92,6 +105,7 @@ export default function CameraScreen({
   const [flash, setFlash] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [sample, setSample] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const filter = getFilter(filterId);
   const running = phase.kind !== "ready" && phase.kind !== "done";
@@ -131,14 +145,26 @@ export default function CameraScreen({
   useEffect(() => {
     let cancelled = false;
 
+    // Whatever happens below, we must end up showing the button. This
+    // screen used to be able to sit on "checking" forever if the
+    // permission query never settled — some in-app browsers expose
+    // navigator.permissions and then simply never resolve it — and a
+    // person staring at a blank tube has no way to trigger the prompt.
+    const failsafe = setTimeout(() => {
+      if (!cancelled) setGate((g) => (g === "checking" ? "ask" : g));
+    }, PERMISSION_CHECK_MS);
+
     (async () => {
       try {
         const permissions = navigator.permissions;
         if (permissions?.query) {
-          const result = await permissions.query({
-            name: "camera" as PermissionName,
-          });
-          if (!cancelled && result.state === "granted") {
+          const result = await Promise.race([
+            permissions.query({ name: "camera" as PermissionName }),
+            new Promise<null>((resolve) =>
+              setTimeout(() => resolve(null), PERMISSION_CHECK_MS),
+            ),
+          ]);
+          if (!cancelled && result && result.state === "granted") {
             setGate("open");
             void open();
             return;
@@ -152,6 +178,7 @@ export default function CameraScreen({
 
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
     };
   }, [open]);
 
@@ -194,6 +221,33 @@ export default function CameraScreen({
   }, [status, running, mirrored, videoRef]);
 
   /* ---------------- The shoot ---------------- */
+
+  /** Puts the page URL on the clipboard, for the in-app browser case. */
+  const copyLink = useCallback(async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // Clipboard is blocked in plenty of webviews — exactly the ones
+      // this button exists for. Fall back to selecting the text so it
+      // can be copied by hand.
+      const field = document.createElement("textarea");
+      field.value = url;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      try {
+        setCopied(document.execCommand("copy"));
+      } catch {
+        setCopied(false);
+      }
+      field.remove();
+    }
+    setTimeout(() => setCopied(false), 2400);
+  }, []);
 
   const resetSession = useCallback(() => {
     takenRef.current.clear();
@@ -575,6 +629,17 @@ export default function CameraScreen({
                     We need your camera to take the three photos. They stay on
                     your phone — nothing is uploaded.
                   </p>
+
+                  {/* Said before they tap, not after it fails. Most
+                      in-app browsers won't even show the prompt, and
+                      someone who scanned the QR from inside Instagram
+                      has no reason to suspect that's the problem. */}
+                  {isInAppBrowser() && (
+                    <p className="t-body mx-auto mt-3 max-w-[28ch] text-[0.8rem] text-pink">
+                      You&apos;re in another app&apos;s browser. If the camera
+                      doesn&apos;t start, open this page in Safari or Chrome.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -610,14 +675,34 @@ export default function CameraScreen({
                   <p className="t-body mx-auto mt-3 max-w-[30ch] text-[0.85rem] text-paper/60">
                     {CAMERA_MESSAGES[problem].body}
                   </p>
+
+                  {/* Where the setting actually lives, on this phone.
+                      "Open site settings" is useless advice if you
+                      don't already know where they are. */}
+                  {problem === "denied" && (
+                    <p className="t-body mx-auto mt-2.5 max-w-[32ch] text-[0.8rem] text-paper/40">
+                      {permissionHint()}
+                    </p>
+                  )}
+
                   <div className="mt-5 flex items-center justify-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => void open()}
-                      className="control control-lit t-machine px-5 py-3 text-[1rem]"
-                    >
-                      Try again
-                    </button>
+                    {problem === "webview" ? (
+                      <button
+                        type="button"
+                        onClick={() => void copyLink()}
+                        className="control control-lit t-machine px-5 py-3 text-[1rem]"
+                      >
+                        {copied ? "Copied" : "Copy link"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void open()}
+                        className="control control-lit t-machine px-5 py-3 text-[1rem]"
+                      >
+                        Try again
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={onExit}
